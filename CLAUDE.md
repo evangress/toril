@@ -18,12 +18,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 0. Current State
 
-**Phase 0 (§8) is done.** The repo is now a working Tauri 2 + Vite + TypeScript scaffold matching §4's split: frontend at the repo root (`package.json`, `vite.config.ts`, `index.html`, `src/`) and the Rust backend in `src-tauri/`. The throwaway root `Cargo.toml` / `src/main.rs` placeholders are gone.
+**Phases 0 and 1 (§8) are implemented; both Phase 1 gates pass.** Tauri 2 + Vite + TypeScript, §4 split (frontend at repo root, Rust in `src-tauri/`).
 
-What exists today (just the scaffold — **no editor yet**):
-- One demo IPC round-trip: Rust `ping` command (`src-tauri/src/lib.rs`) → typed `ping()` wrapper in `src/ipc.ts` → `src/main.ts` shows "backend connected" on load. This is the Phase 0 gate; it's a placeholder to delete once §5's real commands land.
-- Frontend follows the §5 rule already: components call backend only through `src/ipc.ts`, never `invoke()` directly.
-- Pinned per §2: exact versions in `package.json`; `src-tauri/Cargo.lock` committed. Crate is `toril-app` (lib `toril_app_lib`), product/window/bundle name is **Toril**, edition **2024**.
+What exists today:
+- **Milkdown WYSIWYG** editor (`src/editor/milkdown.ts`): CommonMark + GFM (tables, task lists, strikethrough) + change listener. Mounted by `src/main.ts`.
+- **`src/editor/serializer.ts`** is the single canonical converter (§3.2): `docToMarkdown` / `markdownToDoc`, wrapping Milkdown's own remark pipeline. Nothing else converts markdown.
+- **File commands** (§5, all disk I/O in Rust): `open_file`, `save_file`, `save_file_as` in `src-tauri/src/commands/files.rs`. Writes go through the **`fsatomic`** crate (`src-tauri/crates/fsatomic`) — a dependency-free, unit-tested atomic-write core (temp + fsync + rename, §3.1).
+- **App controller** (`src/main.ts`): New/Open/Save/Save As (buttons + Ctrl+N/O/S, Ctrl+Shift+S = Save As), dirty flag, title shows `name *`. All backend calls go through `src/ipc.ts` (§5 rule).
+- **Gates green:** atomic-save → `cd src-tauri && cargo test -p fsatomic` (5 tests, incl. "interrupted save leaves original intact"). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown editor in jsdom, 14 tests).
+
+**Not yet done / deferred:**
+- **Round-trip gate covers CommonMark + GFM only.** Math and YAML front matter need their plugins (§6) and are **Phase 3**; until then a file containing them is **not** guaranteed lossless — add their fixtures to `roundtrip.test.ts` when those plugins land.
+- **Formatting is normalized to Milkdown's canonical form** on first save (tight lists → loose, `---` → `***`). This reformats whitespace but never drops content and is idempotent thereafter (a documented WYSIWYG trade-off; see the normalization test). Relevant to Obsidian-vault diffs (§1).
+- **GUI flows (dialogs, Ctrl+S, dirty title) are unverified** — they need the webview; see the build-environment note. Verify on a machine with platform webview deps.
+- No source/typewriter/focus modes, themes beyond nord, sanitize.ts wiring, or watcher yet (Phases 2–3).
 
 ### Commands
 ```bash
@@ -31,14 +39,16 @@ pnpm install          # first time (pnpm via `corepack enable pnpm`)
 pnpm tauri dev        # run the app (opens the window)
 pnpm tauri build      # production .exe + installer (Windows; see §9)
 
+pnpm test             # vitest — round-trip gate (jsdom + Milkdown)
 pnpm typecheck        # tsc --noEmit (TS strict)
 pnpm build            # tsc + vite build (frontend only)
-cd src-tauri && cargo fmt && cargo clippy   # required clean before commit (§10)
+cd src-tauri && cargo test -p fsatomic        # atomic-save gate (no webview needed)
+cd src-tauri && cargo fmt --all && cargo clippy   # clean before commit (§10)
 ```
 
-**Build environment note.** The Rust crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, `pnpm build` (frontend) and `cargo generate-lockfile` work, but a full `cargo build`/`tauri dev` will not link. Phase 0 was verified here by frontend typecheck + vite build + lockfile resolution; the window itself must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`).
+**Build environment note.** The Rust **app** crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, the frontend (`pnpm build`/`test`/`typecheck`), the `fsatomic` tests, and `cargo generate-lockfile` all work, but a full `cargo build`/`tauri dev` will not link. The window must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`). `fsatomic` is split out partly so the §3.1 gate stays runnable everywhere.
 
-**Next: Phase 1** — Milkdown WYSIWYG + `serializer.ts` + atomic `open_file`/`save_file`, with the two Phase 1 gates (round-trip + atomic-save).
+**Next: Phase 2** — `open_folder` + sidebar tree, multi-document tabs, `watch_folder` + external-change reload.
 
 ---
 
@@ -192,11 +202,12 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - `create-tauri-app` (Vite + TS). Window opens; one round-trip command works.
 - Shipped: Tauri 2 + Vite + TS scaffold; `ping` IPC round-trip via `src/ipc.ts`. (Window launch verified on a machine with platform webview deps — see §0.)
 
-**Phase 1 — MVP editor + data safety**
-- Milkdown WYSIWYG editing a buffer; `serializer.ts` is the only converter.
-- `open_file` / `save_file` (**atomic**) / `save_file_as`; Ctrl+S; dirty indicator; title shows file + `*`.
-- **GATE:** automated round-trip test — open a fixture covering headings, lists, tables, code fences, math, front matter → serialize → compare. Must be lossless before any further features. (§3.2)
-- **GATE:** atomic-save test — interrupting a save must leave the original intact. (§3.1)
+**Phase 1 — MVP editor + data safety** ✅ *core done (gates green); GUI flows need on-device verification*
+- ✅ Milkdown WYSIWYG editing a buffer; `serializer.ts` is the only converter.
+- ✅ `open_file` / `save_file` (**atomic**, via `fsatomic`) / `save_file_as`; Ctrl+S/O/N; dirty indicator; title shows file + `*`.
+- ✅ **GATE:** round-trip test (`tests/roundtrip.test.ts`, `pnpm test`). Covers headings, lists, tables, code fences, blockquotes, inline marks, links, task lists, strikethrough. ⚠️ **math + front matter deferred to Phase 3** (their plugins land then); add those fixtures at that point. (§3.2)
+- ✅ **GATE:** atomic-save test (`cargo test -p fsatomic`) — interrupting a save leaves the original intact. (§3.1)
+- ⏳ Open/Save dialogs and the dirty-title behavior are unverified in a live window (no webview here) — verify with `pnpm tauri dev` on a webview-capable machine.
 
 **Phase 2 — Workspace**
 - `open_folder` + sidebar tree; multi-document tabs.

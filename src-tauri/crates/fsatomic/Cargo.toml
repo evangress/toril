@@ -1,0 +1,9 @@
+[package]
+name = "fsatomic"
+version = "0.1.0"
+edition = "2024"
+description = "Atomic, fsync-backed file writes for Toril (CLAUDE.md §3.1). No Tauri dependency so it is unit-testable on any platform."
+
+# Intentionally dependency-free (std only): this is the data-safety core and
+# must be trivial to audit and to test without the GUI toolchain.
+[dependencies]
