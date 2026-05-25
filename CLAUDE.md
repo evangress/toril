@@ -26,14 +26,15 @@ What exists today:
 - **File commands** (§5, all disk I/O in Rust): `open_file`, `save_file`, `save_file_as` in `src-tauri/src/commands/files.rs`. Writes go through the **`fsatomic`** crate — a dependency-free, unit-tested atomic-write core (temp + fsync + rename, §3.1).
 - **Workspace** (Phase 2): `open_folder` + `watch_folder` in `src-tauri/src/commands/workspace.rs`. Folder scanning lives in the dependency-free **`vaultscan`** crate (`.md` tree, skips hidden/`.obsidian`, prunes asset-only dirs). `watch_folder` uses the **`notify`** crate and emits `workspace:change` events. Frontend: `src/ui/sidebar.ts` (file tree), `src/ui/tabs.ts` (multi-document tabs, one shared editor + per-tab buffer), with external-change reload prompts in `main.ts`.
 - **App controller** (`src/main.ts`): New/Open/Open Folder/Save/Save As (buttons + Ctrl+N, Ctrl+O, Ctrl+Shift+O, Ctrl+S, Ctrl+Shift+S), dirty flag, title shows `name *`. All backend calls go through `src/ipc.ts` (§5 rule).
-- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 14). Plus `vaultscan` (3) and `tabs.test.ts` (8).
+- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 31.
 
 **Not yet done / deferred:**
-- **Round-trip gate covers CommonMark + GFM only.** Math and YAML front matter need their plugins (§6) and are **Phase 3**; until then a file containing them is **not** guaranteed lossless — add their fixtures to `roundtrip.test.ts` when those plugins land.
+- **Round-trip gate covers CommonMark + GFM + emoji.** Math is **deferred** (its only plugin is deprecated — §8). YAML front matter still needs handling and is **not** yet guaranteed lossless — add its fixtures to `roundtrip.test.ts` when that lands.
 - **Formatting is normalized to Milkdown's canonical form** on first save (tight lists → loose, `---` → `***`). Reformats whitespace but never drops content and is idempotent thereafter (documented WYSIWYG trade-off; see the normalization test). Relevant to Obsidian-vault diffs (§1).
 - **All GUI flows are unverified** (dialogs, Ctrl+S, tabs, sidebar, watcher reload) — they need the webview; see the build-environment note. Verify on a machine with platform webview deps.
 - Tab switching does **not** preserve per-tab undo history (single shared editor; content is swapped). Acceptable for now; revisit if it bites.
-- No source/typewriter/focus modes, themes beyond nord, `sanitize.ts` wiring yet (Phase 3).
+- **`sanitize.ts` exists** (DOMPurify chokepoint, §3.3) and is unit-tested; the editor surface is audited safe (Milkdown renders raw HTML as inert text — guarded by `security.test.ts`). It will be **wired into HTML/PDF export** (the real HTML sink) when that slice lands.
+- No source/typewriter/focus modes, themes beyond nord yet (Phase 3).
 
 ### Commands
 ```bash
@@ -225,7 +226,7 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - **Math (KaTeX) — DEFERRED.** The only Milkdown math plugin (`@milkdown/plugin-math`) is npm-**deprecated** ("no longer supported"), so it is omitted per the healthy-dependency rule (§2/§10). Revisit if a maintained math plugin appears, or if we hand-roll one on a maintained KaTeX + `remark-math` base. Until then the round-trip gate stays CommonMark + GFM + emoji.
 - Source / Typewriter / Focus modes.
 - Themes (≥1 light, ≥1 dark) + persisted settings.
-- `sanitize.ts` wired into all rendered content. (§3.3)
+- `sanitize.ts` (§3.3): ✅ module + unit tests done, editor audited safe (renders HTML as inert text). ⏳ remaining: wire it into HTML/PDF export output (the real HTML sink).
 - Clipboard image paste.
 - HTML export, then PDF export.
 
