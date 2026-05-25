@@ -115,8 +115,9 @@ If a feature would compromise any of these three, the feature loses.
 toril/
 ├── CLAUDE.md                  # this file
 ├── package.json               # frontend deps + scripts (pinned)
-├── vite.config.ts
-├── index.html
+├── vite.config.ts             # build input = app.html (not index.html)
+├── app.html                   # the app's HTML entry (Tauri window loads this)
+├── index.html                 # RESERVED for the GitHub Pages landing page — NOT part of the app build
 ├── src/                       # FRONTEND (TypeScript, strict)
 │   ├── main.ts                # bootstrap
 │   ├── editor/

@@ -14,6 +14,7 @@
     "windows": [
       {
         "title": "Toril",
+        "url": "app.html",
         "width": 1000,
         "height": 700
       }
