@@ -278,4 +278,10 @@ Code signing is optional for personal use; without it, Windows SmartScreen warns
 
 ---
 
+## 12. Future Ideas (out of scope — do not build into current milestones)
+
+- **Multi-format structured editing (JSON / XML / YAML / TOML).** Idea: extend Toril into a human interface for machine-friendly formats, not just markdown. **Deferred** to keep the markdown editor whole; revisit only after it ships (possibly as a *separate*, structured-document-oriented app). If pursued, the shape is **one app with pluggable editor surfaces** — an `EditorProvider` registry keyed by file type, each provider honoring the §3.2 single-canonical-serializer contract. It is **not** Milkdown plugins (Milkdown/ProseMirror is prose-only; data formats need a structure-tree / typed-form engine, likely CodeMirror 6 + schema) and **not** a fork of the whole app (the Tauri shell, sidebar, tabs, and Rust file I/O are already format-agnostic — only the editor surface is markdown-specific). The hard part is lossless round-trip (§3.2), which is *worse* than markdown here: YAML comments/anchors/Norway-problem, JSON key order, XML namespaces/attribute order — a reordered key or dropped comment breaks machine consumers. Note: `tabs.ts` currently uses one shared Milkdown instance + per-tab buffers; multi-format would require per-tab provider instances.
+
+---
+
 *Pure-Rust (egui) split-pane alternative was considered and rejected: it would trade away the inline WYSIWYG feel that is the whole point. Decision is closed.*
