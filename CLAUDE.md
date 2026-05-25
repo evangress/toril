@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # CLAUDE.md — Toril
 
 > **Toril** — a MarkText-style WYSIWYG markdown editor built on **Tauri + TypeScript + Milkdown**.
@@ -9,6 +13,32 @@
 > **Finalized build plan.** Keep this file at the repo root — Claude Code reads it every session.
 > The stack is **decided** (see §2); do not re-litigate it. Build **milestone by milestone** (§8),
 > and treat §3 (Data Safety) as hard rules, not suggestions.
+
+---
+
+## 0. Current State
+
+**Phase 0 (§8) is done.** The repo is now a working Tauri 2 + Vite + TypeScript scaffold matching §4's split: frontend at the repo root (`package.json`, `vite.config.ts`, `index.html`, `src/`) and the Rust backend in `src-tauri/`. The throwaway root `Cargo.toml` / `src/main.rs` placeholders are gone.
+
+What exists today (just the scaffold — **no editor yet**):
+- One demo IPC round-trip: Rust `ping` command (`src-tauri/src/lib.rs`) → typed `ping()` wrapper in `src/ipc.ts` → `src/main.ts` shows "backend connected" on load. This is the Phase 0 gate; it's a placeholder to delete once §5's real commands land.
+- Frontend follows the §5 rule already: components call backend only through `src/ipc.ts`, never `invoke()` directly.
+- Pinned per §2: exact versions in `package.json`; `src-tauri/Cargo.lock` committed. Crate is `toril-app` (lib `toril_app_lib`), product/window/bundle name is **Toril**, edition **2024**.
+
+### Commands
+```bash
+pnpm install          # first time (pnpm via `corepack enable pnpm`)
+pnpm tauri dev        # run the app (opens the window)
+pnpm tauri build      # production .exe + installer (Windows; see §9)
+
+pnpm typecheck        # tsc --noEmit (TS strict)
+pnpm build            # tsc + vite build (frontend only)
+cd src-tauri && cargo fmt && cargo clippy   # required clean before commit (§10)
+```
+
+**Build environment note.** The Rust crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, `pnpm build` (frontend) and `cargo generate-lockfile` work, but a full `cargo build`/`tauri dev` will not link. Phase 0 was verified here by frontend typecheck + vite build + lockfile resolution; the window itself must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`).
+
+**Next: Phase 1** — Milkdown WYSIWYG + `serializer.ts` + atomic `open_file`/`save_file`, with the two Phase 1 gates (round-trip + atomic-save).
 
 ---
 
@@ -158,8 +188,9 @@ Ship HTML export in Phase 3; add PDF after it's stable.
 
 One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 
-**Phase 0 — Scaffold**
+**Phase 0 — Scaffold** ✅ *done*
 - `create-tauri-app` (Vite + TS). Window opens; one round-trip command works.
+- Shipped: Tauri 2 + Vite + TS scaffold; `ping` IPC round-trip via `src/ipc.ts`. (Window launch verified on a machine with platform webview deps — see §0.)
 
 **Phase 1 — MVP editor + data safety**
 - Milkdown WYSIWYG editing a buffer; `serializer.ts` is the only converter.
@@ -209,7 +240,7 @@ Code signing is optional for personal use; without it, Windows SmartScreen warns
 - All markdown conversion goes through `serializer.ts`. Never introduce a second conversion path.
 - Saves are always atomic (temp + fsync + rename).
 - Everything rendered in the webview passes through `sanitize.ts`.
-- Rust: edition 2021; `cargo fmt` + `cargo clippy` clean before any commit.
+- Rust: edition 2024; `cargo fmt` + `cargo clippy` clean before any commit. (When `create-tauri-app` scaffolds `src-tauri/` with edition 2021, bump it to 2024 to match.)
 - TS: `strict` on; no `any`.
 - One milestone per branch; conventional commits (`feat:`, `fix:`, `chore:`). Don't skip the Phase 1 gates.
 - When two designs compete, prefer the one that keeps `.md` files plain and portable (Obsidian-compatible).

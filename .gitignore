@@ -1,0 +1,15 @@
+# Rust / Cargo
+/target
+/src-tauri/target
+/src-tauri/gen/schemas
+
+# Node / frontend
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor / OS
+.DS_Store
+.idea/
+.claude/settings.local.json
