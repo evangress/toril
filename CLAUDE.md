@@ -89,6 +89,8 @@ Primary target: **Windows `.exe`**. macOS/Linux come free from the stack but are
 
 **Only depend on healthy packages.** Never add a dependency that is deprecated, unmaintained, or low-reputation. Before adding one, confirm it is not flagged `deprecated` (npm / crates.io), has a recent publish history, and comes from a reputable publisher. If a feature's *only* viable dependency is unhealthy, **defer the feature** (note the deferral in §8) rather than shipping the bad dep.
 
+**One vendored exception — security-patched `glib`.** `src-tauri/third-party/glib/` is gtk-rs `glib` 0.18.5 vendored verbatim except a one-line fix for **GHSA-wrw7-89jp-8q8g** (a `VariantStrIter` NULL-deref), wired in via `[patch.crates-io]` in `src-tauri/Cargo.toml`. It exists only because Tauri's frozen gtk3 stack pins a vulnerable glib with no 0.18.x backport (glib 0.20 is incompatible). It is `exclude`d from the Cargo workspace, so we never fmt/clippy/test upstream code — and CodeQL findings inside it (e.g. `rust/access-invalid-pointer` on sound FFI derefs) are false positives, dismissed as *won't fix*. Don't edit it beyond the security patch; **remove the whole vendored crate** once Tauri moves off gtk3 and a non-vulnerable glib comes in transitively. Full rationale is in the `Cargo.toml` patch comment.
+
 ### Why this stack (so it isn't second-guessed later)
 Inline WYSIWYG is the hard part of any markdown editor, and the mature engines for it live in the browser DOM (ProseMirror/Milkdown). Tauri gives a Rust core + system webview, so we get that mature editor **and** a small native binary. The whole app ends up memory-safe (Rust core + GC'd webview runtime) without any C/C++ in our code.
 
