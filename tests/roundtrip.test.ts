@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
+import { emoji } from "@milkdown/plugin-emoji";
 import { docToMarkdown } from "../src/editor/serializer";
 
 /** Parse `md` into a real editor doc, then serialize it back to markdown. */
@@ -29,6 +30,7 @@ async function roundtrip(md: string): Promise<string> {
     })
     .use(commonmark)
     .use(gfm)
+    .use(emoji)
     .create();
   const out = docToMarkdown(editor);
   await editor.destroy();
@@ -52,6 +54,9 @@ const fixtures: Record<string, string> = {
   gfmTable: "| A | B |\n| - | - |\n| 1 | 2 |\n",
   gfmTaskList: "* [ ] todo\n\n* [x] done\n",
   gfmStrikethrough: "~~struck~~\n",
+  // Phase 3: emoji canonical form is the unicode char (shortcodes normalize to it;
+  // see the normalization test below). Math is deferred — its plugin is deprecated (§8).
+  emoji: "Ship it 🚀 now\n",
 };
 
 describe("round-trip fidelity (Phase 1 gate)", () => {
@@ -84,5 +89,13 @@ describe("round-trip fidelity (Phase 1 gate)", () => {
     for (const item of ["one", "two", "three"]) {
       expect(out).toContain(item); // every item survived
     }
+  });
+
+  // Emoji shortcodes (`:smile:`) are normalized to the unicode emoji on first
+  // save — same safe pattern as tight→loose lists: content preserved, idempotent.
+  it("normalizes emoji shortcodes to unicode without losing content", async () => {
+    const out = await roundtrip("Hello :smile: world\n");
+    expect(out).toBe("Hello 😄 world\n"); // :smile: → 😄
+    expect(await roundtrip(out)).toBe(out); // stable afterwards
   });
 });

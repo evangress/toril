@@ -51,7 +51,7 @@ cd src-tauri && cargo fmt --all && cargo clippy   # clean before commit (§10)
 
 **Build environment note.** The Rust **app** crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, the frontend (`pnpm build`/`test`/`typecheck`), the `fsatomic` tests, and `cargo generate-lockfile` all work, but a full `cargo build`/`tauri dev` will not link. The window must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`). `fsatomic` is split out partly so the §3.1 gate stays runnable everywhere.
 
-**Next: Phase 3** — GFM (done) / math / emoji plugins, Source / Typewriter / Focus modes, themes + persisted settings, `sanitize.ts` wired into all rendered content (§3.3), clipboard image paste, then HTML → PDF export.
+**Next: Phase 3** — GFM (done) / emoji plugin (math **deferred**: its only plugin is deprecated — see §8), Source / Typewriter / Focus modes, themes + persisted settings, `sanitize.ts` wired into all rendered content (§3.3), clipboard image paste, then HTML → PDF export.
 
 ---
 
@@ -85,6 +85,8 @@ Primary target: **Windows `.exe`**. macOS/Linux come free from the stack but are
 | MD parsing (Rust) | **comrak** | CommonMark + GFM for HTML/PDF export and any backend parsing |
 
 **Pin every dependency** (Cargo.lock committed; exact versions in package.json). Upgrade deliberately, never on a whim.
+
+**Only depend on healthy packages.** Never add a dependency that is deprecated, unmaintained, or low-reputation. Before adding one, confirm it is not flagged `deprecated` (npm / crates.io), has a recent publish history, and comes from a reputable publisher. If a feature's *only* viable dependency is unhealthy, **defer the feature** (note the deferral in §8) rather than shipping the bad dep.
 
 ### Why this stack (so it isn't second-guessed later)
 Inline WYSIWYG is the hard part of any markdown editor, and the mature engines for it live in the browser DOM (ProseMirror/Milkdown). Tauri gives a Rust core + system webview, so we get that mature editor **and** a small native binary. The whole app ends up memory-safe (Rust core + GC'd webview runtime) without any C/C++ in our code.
@@ -173,7 +175,7 @@ Authoritative list. Update it here whenever a command changes. **All disk access
 |---|---|
 | WYSIWYG core | `@milkdown/core` + `@milkdown/preset-commonmark` |
 | GFM (tables, task lists, strikethrough) | `@milkdown/preset-gfm` |
-| Math (KaTeX) | `@milkdown/plugin-math` |
+| Math (KaTeX) | **Deferred** — `@milkdown/plugin-math` is deprecated; omitted until a maintained option exists (§8) |
 | Emoji shortcodes | `@milkdown/plugin-emoji` |
 | Inline / slash shortcuts | `@milkdown/plugin-slash` + keymap config |
 | Front matter | comrak handles on export; render as a collapsed block in-editor |
@@ -219,7 +221,8 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - ⏳ Sidebar clicks, tab switching, and watcher reload prompts are unverified in a live window (no webview here).
 
 **Phase 3 — MarkText parity**
-- GFM, math, emoji plugins.
+- GFM (done) + emoji plugin (`@milkdown/plugin-emoji`, maintained).
+- **Math (KaTeX) — DEFERRED.** The only Milkdown math plugin (`@milkdown/plugin-math`) is npm-**deprecated** ("no longer supported"), so it is omitted per the healthy-dependency rule (§2/§10). Revisit if a maintained math plugin appears, or if we hand-roll one on a maintained KaTeX + `remark-math` base. Until then the round-trip gate stays CommonMark + GFM + emoji.
 - Source / Typewriter / Focus modes.
 - Themes (≥1 light, ≥1 dark) + persisted settings.
 - `sanitize.ts` wired into all rendered content. (§3.3)

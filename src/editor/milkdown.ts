@@ -1,11 +1,13 @@
 // Milkdown WYSIWYG setup (CLAUDE.md §6). Phase 1 wires the inline editing core:
 // CommonMark + GFM (tables, task lists, strikethrough) + a change listener.
-// Math, emoji, slash menus and themes arrive in Phase 3 — added here as plugins,
-// never by hand-rolling ProseMirror nodes (§11).
+// Phase 3 adds emoji shortcodes (`:smile:` → 😄). Math is deferred — its only
+// Milkdown plugin is deprecated (§8). Plugins are added here, never by
+// hand-rolling ProseMirror nodes (§11).
 import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
 import { gfm } from "@milkdown/kit/preset/gfm";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
+import { emoji } from "@milkdown/plugin-emoji";
 import { nord } from "@milkdown/theme-nord";
 
 export interface CreateEditorOptions {
@@ -31,6 +33,7 @@ export function createEditor(options: CreateEditorOptions): Promise<Editor> {
     .config(nord)
     .use(commonmark)
     .use(gfm)
+    .use(emoji)
     .use(listener)
     .create();
 }
