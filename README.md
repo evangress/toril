@@ -10,51 +10,36 @@ live Obsidian vault — no proprietary container, no lock-in.
 **Primary platform: Windows.** macOS and Linux build from the same stack but are
 not the current focus.
 
-> ⚠️ **Status: early development.** The editor, atomic file saving, a folder
+> ⚠️ **Status: early alpha.** The editor, atomic file saving, a folder
 > sidebar, multi-document tabs, and an external-change watcher are in place
-> (build milestones 0–2). There is **no prebuilt download yet** — to install,
-> build it from source as described below.
+> (build milestones 0–2). The first prebuilt installers are available in
+> **[v0.1.0-alpha](https://github.com/evangress/toril/releases/tag/v0.1.0-alpha)** —
+> expect rough edges, and keep backups of important notes.
 
 ---
 
+## Download
+
+Prebuilt installers for the latest alpha are on the
+**[releases page](https://github.com/evangress/toril/releases/latest)**. Grab the
+one for your platform:
+
+| Platform | Download |
+|---|---|
+| **Windows** (recommended) | [`Toril_0.1.0_x64-setup.exe`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64-setup.exe) |
+| **Windows** (MSI) | [`Toril_0.1.0_x64_en-US.msi`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64_en-US.msi) |
+| **macOS** (Apple Silicon) | [`Toril_0.1.0_aarch64.dmg`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_aarch64.dmg) |
+| **macOS** (Intel) | [`Toril_0.1.0_x64.dmg`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64.dmg) |
+| **Linux** (AppImage) | [`Toril_0.1.0_amd64.AppImage`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_amd64.AppImage) |
+| **Linux** (Debian/Ubuntu) | [`Toril_0.1.0_amd64.deb`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_amd64.deb) |
+| **Linux** (Fedora/RHEL) | [`Toril-0.1.0-1.x86_64.rpm`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril-0.1.0-1.x86_64.rpm) |
+
+Prefer to compile it yourself? See [Building from source](#running-from-source-development).
+
 ## Installing on Windows
 
-There is no signed release binary yet, so installation is two steps: **build the
-installer once**, then **run it**. The installer is a normal per-user install —
-it needs no administrator rights.
-
-### 1. Prerequisites (build machine)
-
-Install these once:
-
-| Requirement | How |
-|---|---|
-| **Rust** (stable) | <https://rustup.rs> |
-| **Node.js** (LTS) | <https://nodejs.org> |
-| **pnpm** | `corepack enable pnpm` (ships with Node) |
-| **Microsoft C++ Build Tools** (MSVC) | [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) — needed to compile Rust on Windows |
-| **WebView2 runtime** | Preinstalled on Windows 11; the installer bootstraps it on Windows 10 |
-
-### 2. Build the installer
-
-From a terminal in the project folder:
-
-```powershell
-pnpm install
-pnpm tauri build
-```
-
-This produces, under `src-tauri\target\release\bundle\`:
-
-- `nsis\Toril_0.1.0_x64-setup.exe` — the **recommended** installer
-- `msi\Toril_0.1.0_x64_en-US.msi` — an MSI alternative
-
-(The raw, portable executable is `src-tauri\target\release\toril-app.exe` if you
-just want to run it without installing.)
-
-### 3. Run the installer
-
-Double-click **`Toril_0.1.0_x64-setup.exe`**. It performs a per-user install:
+Download **`Toril_0.1.0_x64-setup.exe`** above and double-click it. It performs a
+per-user install — no administrator rights needed:
 
 - Copies the app into **`%LOCALAPPDATA%\Toril`** (i.e.
   `C:\Users\<you>\AppData\Local\Toril`) — no admin prompt.
@@ -71,6 +56,15 @@ Double-click **`Toril_0.1.0_x64-setup.exe`**. It performs a per-user install:
 
 Use **Settings → Apps → Installed apps → Toril → Uninstall**, or run the
 uninstaller in `%LOCALAPPDATA%\Toril`.
+
+## Installing on macOS / Linux
+
+- **macOS:** open the `.dmg` and drag **Toril** to Applications. The build is
+  unsigned, so the first launch needs **right-click → Open** (or *System Settings
+  → Privacy & Security → Open Anyway*) to get past Gatekeeper.
+- **Linux:** the `.AppImage` is portable — `chmod +x Toril_0.1.0_amd64.AppImage`
+  and run it. Or install the `.deb` (`sudo apt install ./Toril_0.1.0_amd64.deb`)
+  / `.rpm` (`sudo dnf install ./Toril-0.1.0-1.x86_64.rpm`).
 
 ---
 
