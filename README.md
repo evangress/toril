@@ -13,7 +13,7 @@ not the current focus.
 > ⚠️ **Status: early alpha.** The editor, atomic file saving, a folder
 > sidebar, multi-document tabs, and an external-change watcher are in place
 > (build milestones 0–2). The first prebuilt installers are available in
-> **[v0.1.0-alpha](https://github.com/evangress/toril/releases/tag/v0.1.0-alpha)** —
+> **[v0.1.0-alpha](https://github.com/kovirlabs/toril/releases/tag/v0.1.0-alpha)** —
 > expect rough edges, and keep backups of important notes.
 
 ---
@@ -21,18 +21,18 @@ not the current focus.
 ## Download
 
 Prebuilt installers for the latest alpha are on the
-**[releases page](https://github.com/evangress/toril/releases/latest)**. Grab the
+**[releases page](https://github.com/kovirlabs/toril/releases/latest)**. Grab the
 one for your platform:
 
 | Platform | Download |
 |---|---|
-| **Windows** (recommended) | [`Toril_0.1.0_x64-setup.exe`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64-setup.exe) |
-| **Windows** (MSI) | [`Toril_0.1.0_x64_en-US.msi`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64_en-US.msi) |
-| **macOS** (Apple Silicon) | [`Toril_0.1.0_aarch64.dmg`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_aarch64.dmg) |
-| **macOS** (Intel) | [`Toril_0.1.0_x64.dmg`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64.dmg) |
-| **Linux** (AppImage) | [`Toril_0.1.0_amd64.AppImage`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_amd64.AppImage) |
-| **Linux** (Debian/Ubuntu) | [`Toril_0.1.0_amd64.deb`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_amd64.deb) |
-| **Linux** (Fedora/RHEL) | [`Toril-0.1.0-1.x86_64.rpm`](https://github.com/evangress/toril/releases/download/v0.1.0-alpha/Toril-0.1.0-1.x86_64.rpm) |
+| **Windows** (recommended) | [`Toril_0.1.0_x64-setup.exe`](https://github.com/kovirlabs/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64-setup.exe) |
+| **Windows** (MSI) | [`Toril_0.1.0_x64_en-US.msi`](https://github.com/kovirlabs/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64_en-US.msi) |
+| **macOS** (Apple Silicon) | [`Toril_0.1.0_aarch64.dmg`](https://github.com/kovirlabs/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_aarch64.dmg) |
+| **macOS** (Intel) | [`Toril_0.1.0_x64.dmg`](https://github.com/kovirlabs/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_x64.dmg) |
+| **Linux** (AppImage) | [`Toril_0.1.0_amd64.AppImage`](https://github.com/kovirlabs/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_amd64.AppImage) |
+| **Linux** (Debian/Ubuntu) | [`Toril_0.1.0_amd64.deb`](https://github.com/kovirlabs/toril/releases/download/v0.1.0-alpha/Toril_0.1.0_amd64.deb) |
+| **Linux** (Fedora/RHEL) | [`Toril-0.1.0-1.x86_64.rpm`](https://github.com/kovirlabs/toril/releases/download/v0.1.0-alpha/Toril-0.1.0-1.x86_64.rpm) |
 
 Prefer to compile it yourself? See [Building from source](#running-from-source-development).
 
