@@ -2,6 +2,9 @@
 # Dependency-free, unit-testable cores: atomic saves (§3.1) and the folder
 # scanner (§5). Kept out of the app crate so their tests run without the webview.
 members = ["crates/fsatomic", "crates/vaultscan"]
+# Vendored, security-patched glib (see [patch.crates-io] below). Excluded so it
+# is never a workspace member — we don't fmt/clippy/test upstream third-party code.
+exclude = ["third-party/glib"]
 
 [package]
 name = "toril-app"
@@ -32,3 +35,14 @@ serde_json = "1"
 notify = "8"
 fsatomic = { path = "crates/fsatomic" }
 vaultscan = { path = "crates/vaultscan" }
+
+# Security patch for glib (Linux/gtk3 transitive dep via Tauri).
+# GHSA-wrw7-89jp-8q8g: VariantStrIter::impl_get passed a NULL out-pointer as
+# `&p` instead of `&mut p` — unsound, and dropped under optimization, causing
+# NULL-deref crashes. Fixed upstream only in glib 0.20.0, which is incompatible
+# with the frozen gtk3-rs 0.18 stack Tauri requires; no 0.18.x backport exists.
+# So we vendor glib 0.18.5 with the one-line fix applied (see
+# third-party/glib/src/variant_iter.rs). Remove this patch once Tauri moves off
+# the gtk3 stack and a non-vulnerable glib is available transitively.
+[patch.crates-io]
+glib = { path = "third-party/glib" }
