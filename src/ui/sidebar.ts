@@ -1,0 +1,72 @@
+// Workspace file tree (CLAUDE.md §4). Renders the FileNode[] from `open_folder`
+// as a collapsible tree; clicking a markdown file asks the controller to open
+// it. Folders use native <details> for zero-JS collapse.
+import type { FileNode } from "../ipc";
+
+export interface SidebarCallbacks {
+  onOpenFile(path: string): void;
+}
+
+export class Sidebar {
+  constructor(
+    private readonly container: HTMLElement,
+    private readonly cb: SidebarCallbacks,
+  ) {}
+
+  /** Render a workspace, or an empty-state hint when no folder is open. */
+  setRoot(rootName: string | null, tree: FileNode[]): void {
+    this.container.replaceChildren();
+
+    if (rootName === null) {
+      const hint = document.createElement("p");
+      hint.className = "sidebar-empty";
+      hint.textContent = "No folder open";
+      this.container.append(hint);
+      return;
+    }
+
+    const heading = document.createElement("div");
+    heading.className = "sidebar-root";
+    heading.textContent = rootName;
+    this.container.append(heading);
+    this.container.append(this.renderNodes(tree));
+  }
+
+  /** Highlight the currently active file by path (no-op if not in the tree). */
+  setActivePath(path: string | null): void {
+    for (const el of this.container.querySelectorAll<HTMLElement>(".file-entry")) {
+      el.dataset.active = String(el.dataset.path === path);
+    }
+  }
+
+  private renderNodes(nodes: FileNode[]): HTMLElement {
+    const ul = document.createElement("ul");
+    ul.className = "tree";
+    for (const node of nodes) {
+      ul.append(node.is_dir ? this.renderDir(node) : this.renderFile(node));
+    }
+    return ul;
+  }
+
+  private renderDir(node: FileNode): HTMLElement {
+    const li = document.createElement("li");
+    const details = document.createElement("details");
+    details.open = true;
+    const summary = document.createElement("summary");
+    summary.textContent = node.name;
+    details.append(summary, this.renderNodes(node.children));
+    li.append(details);
+    return li;
+  }
+
+  private renderFile(node: FileNode): HTMLElement {
+    const li = document.createElement("li");
+    const entry = document.createElement("button");
+    entry.className = "file-entry";
+    entry.dataset.path = node.path;
+    entry.textContent = node.name;
+    entry.addEventListener("click", () => this.cb.onOpenFile(node.path));
+    li.append(entry);
+    return li;
+  }
+}

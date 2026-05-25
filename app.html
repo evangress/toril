@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Toril</title>
+    <script type="module" src="/src/main.ts" defer></script>
+  </head>
+
+  <body>
+    <header id="toolbar">
+      <div class="actions">
+        <button id="btn-new" title="New (Ctrl+N)">New</button>
+        <button id="btn-open" title="Open File (Ctrl+O)">Open</button>
+        <button id="btn-open-folder" title="Open Folder (Ctrl+Shift+O)">Open Folder</button>
+        <button id="btn-save" title="Save (Ctrl+S)">Save</button>
+        <button id="btn-save-as" title="Save As (Ctrl+Shift+S)">Save As</button>
+      </div>
+      <div id="doc-title" class="doc-title">Toril</div>
+    </header>
+
+    <div id="workspace">
+      <aside id="sidebar"></aside>
+      <section id="main">
+        <nav id="tabbar"></nav>
+        <main id="editor" class="editor"></main>
+      </section>
+    </div>
+
+    <footer id="statusbar"><span id="status"></span></footer>
+  </body>
+</html>

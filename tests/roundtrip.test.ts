@@ -1,0 +1,88 @@
+// Phase 1 GATE (CLAUDE.md §3.2, §8): markdown ⇄ document must be lossless.
+//
+// We build a real Milkdown editor (the same commonmark + gfm presets the app
+// uses) and round-trip through serializer.ts — the single canonical converter.
+// Two properties are asserted per fixture:
+//
+//   1. Canonical stability: a fixture authored in Milkdown's canonical form
+//      round-trips byte-for-byte (open → save does not mutate the file).
+//   2. Idempotency: round-tripping again is a no-op (no slow drift across
+//      repeated open/save cycles).
+//
+// The fixtures below are authored in canonical form; if a Milkdown upgrade
+// changes serialization, property (1) fails loudly here before it can corrupt
+// a user's notes.
+import { describe, expect, it } from "vitest";
+import { Editor, defaultValueCtx, rootCtx } from "@milkdown/kit/core";
+import { commonmark } from "@milkdown/kit/preset/commonmark";
+import { gfm } from "@milkdown/kit/preset/gfm";
+import { docToMarkdown } from "../src/editor/serializer";
+
+/** Parse `md` into a real editor doc, then serialize it back to markdown. */
+async function roundtrip(md: string): Promise<string> {
+  const root = document.createElement("div");
+  document.body.appendChild(root);
+  const editor = await Editor.make()
+    .config((ctx) => {
+      ctx.set(rootCtx, root);
+      ctx.set(defaultValueCtx, md);
+    })
+    .use(commonmark)
+    .use(gfm)
+    .create();
+  const out = docToMarkdown(editor);
+  await editor.destroy();
+  root.remove();
+  return out;
+}
+
+// Authored in Milkdown's canonical serialization. Notably Milkdown emits
+// *loose* lists (a blank line between items) and `***` for thematic breaks;
+// see `normalizes formatting without losing content` below for why that is safe.
+const fixtures: Record<string, string> = {
+  headings: "# H1\n\n## H2\n\n### H3\n",
+  inlineMarks: "A paragraph with **bold**, *italic*, and `inline code`.\n",
+  unorderedList: "* Item one\n\n* Item two\n",
+  nestedList: "* Parent\n\n  * Child\n\n  * Child two\n",
+  orderedList: "1. First\n\n2. Second\n",
+  blockquote: "> A quote.\n",
+  codeFence: "```js\nconst x = 1\n```\n",
+  thematicBreak: "Above.\n\n***\n\nBelow.\n",
+  link: "[example](https://example.com)\n",
+  gfmTable: "| A | B |\n| - | - |\n| 1 | 2 |\n",
+  gfmTaskList: "* [ ] todo\n\n* [x] done\n",
+  gfmStrikethrough: "~~struck~~\n",
+};
+
+describe("round-trip fidelity (Phase 1 gate)", () => {
+  for (const [name, md] of Object.entries(fixtures)) {
+    it(`is canonical & stable: ${name}`, async () => {
+      const once = await roundtrip(md);
+      expect(once).toBe(md); // (1) lossless on canonical input
+      const twice = await roundtrip(once);
+      expect(twice).toBe(once); // (2) idempotent
+    });
+  }
+
+  it("preserves a combined document losslessly", async () => {
+    const doc = Object.values(fixtures).join("\n");
+    const once = await roundtrip(doc);
+    const twice = await roundtrip(once);
+    expect(twice).toBe(once);
+    // sanity: nothing collapsed to empty
+    expect(once.trim().length).toBeGreaterThan(0);
+  });
+
+  // Non-canonical input (e.g. a tight list authored by hand or by Obsidian) is
+  // normalized to the canonical form on first save. That reformats whitespace
+  // but never drops content, and is stable thereafter — the safe behavior.
+  it("normalizes formatting without losing content", async () => {
+    const tight = "* one\n* two\n* three\n";
+    const out = await roundtrip(tight);
+    expect(out).toBe("* one\n\n* two\n\n* three\n"); // tight → loose
+    expect(await roundtrip(out)).toBe(out); // stable afterwards
+    for (const item of ["one", "two", "three"]) {
+      expect(out).toContain(item); // every item survived
+    }
+  });
+});

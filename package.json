@@ -1,0 +1,28 @@
+{
+  "name": "toril",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@milkdown/kit": "7.21.1",
+    "@milkdown/theme-nord": "7.21.1",
+    "@tauri-apps/api": "2.11.0",
+    "@tauri-apps/plugin-dialog": "2.7.1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.11.2",
+    "jsdom": "29.1.1",
+    "typescript": "5.6.3",
+    "vite": "6.4.2",
+    "vitest": "4.1.7"
+  }
+}

@@ -1,0 +1,4 @@
+# Vite's esbuild needs its native binary built on install. pnpm 11+ reads
+# build-script allowlists here (the package.json "pnpm" field is ignored).
+allowBuilds:
+  esbuild: true
