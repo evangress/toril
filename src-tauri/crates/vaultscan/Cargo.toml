@@ -1,0 +1,8 @@
+[package]
+name = "vaultscan"
+version = "0.1.0"
+edition = "2024"
+description = "Recursive markdown-tree scanner for Toril workspaces (CLAUDE.md §5 open_folder). No Tauri dependency so the walk logic is unit-testable anywhere."
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }

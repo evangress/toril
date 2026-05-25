@@ -4,7 +4,8 @@
   --muted: #6b7280;
   --border: #e5e7eb;
   --toolbar-bg: #f6f6f7;
-  --accent: #2e7d32;
+  --sidebar-bg: #fafafa;
+  --active-bg: #e8effd;
 
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -27,8 +28,10 @@ body {
 body {
   display: grid;
   grid-template-rows: auto 1fr auto;
+  overflow: hidden;
 }
 
+/* ---- Toolbar ---- */
 #toolbar {
   display: flex;
   align-items: center;
@@ -63,10 +66,129 @@ body {
   color: var(--muted);
 }
 
-/* The "*" dirty marker is rendered in the text; emphasize it when dirty. */
 .doc-title[data-dirty="true"] {
   color: var(--fg);
   font-weight: 600;
+}
+
+/* ---- Workspace: sidebar | main ---- */
+#workspace {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 0;
+}
+
+#sidebar {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  overflow: auto;
+  padding: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.sidebar-empty {
+  color: var(--muted);
+  font-style: italic;
+  padding: 0.5rem;
+}
+
+.sidebar-root {
+  font-weight: 700;
+  padding: 0.25rem 0.25rem 0.5rem;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+#sidebar .tree {
+  list-style: none;
+  margin: 0;
+  padding-left: 0.6rem;
+}
+
+#sidebar summary {
+  cursor: pointer;
+  padding: 0.12rem 0.25rem;
+  border-radius: 4px;
+}
+
+#sidebar summary:hover {
+  background: var(--active-bg);
+}
+
+.file-entry {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  border: 0;
+  background: none;
+  color: inherit;
+  padding: 0.12rem 0.25rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.file-entry:hover {
+  background: var(--active-bg);
+}
+
+.file-entry[data-active="true"] {
+  background: var(--active-bg);
+  font-weight: 600;
+}
+
+/* ---- Main: tab bar + editor ---- */
+#main {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-height: 0;
+  min-width: 0;
+}
+
+#tabbar {
+  display: flex;
+  gap: 1px;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.75rem;
+  font-size: 0.82rem;
+  border-right: 1px solid var(--border);
+  background: var(--toolbar-bg);
+  white-space: nowrap;
+}
+
+.tab[data-active="true"] {
+  background: var(--bg);
+  font-weight: 600;
+}
+
+.tab-label {
+  cursor: pointer;
+}
+
+.tab-close {
+  font: inherit;
+  line-height: 1;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 0.2rem;
+  border-radius: 4px;
+}
+
+.tab-close:hover {
+  background: var(--border);
+  color: var(--fg);
 }
 
 .editor {
@@ -74,13 +196,13 @@ body {
   padding: 2rem 0;
 }
 
-/* Milkdown mounts here; nord theme styles the prose. Constrain line length. */
 .editor .milkdown {
   max-width: 720px;
   margin: 0 auto;
   padding: 0 1.5rem;
 }
 
+/* ---- Status bar ---- */
 #statusbar {
   padding: 0.25rem 0.75rem;
   font-size: 0.78rem;
@@ -96,6 +218,8 @@ body {
     --muted: #9aa0a6;
     --border: #34343a;
     --toolbar-bg: #26262b;
+    --sidebar-bg: #232328;
+    --active-bg: #2f3a4d;
   }
   #toolbar button {
     background: #2f2f35;

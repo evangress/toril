@@ -1,6 +1,7 @@
 [workspace]
-# fsatomic is the dependency-free, unit-testable data-safety core (§3.1).
-members = ["crates/fsatomic"]
+# Dependency-free, unit-testable cores: atomic saves (§3.1) and the folder
+# scanner (§5). Kept out of the app crate so their tests run without the webview.
+members = ["crates/fsatomic", "crates/vaultscan"]
 
 [package]
 name = "toril-app"
@@ -28,4 +29,6 @@ tauri = { version = "2", features = [] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+notify = "8"
 fsatomic = { path = "crates/fsatomic" }
+vaultscan = { path = "crates/vaultscan" }
