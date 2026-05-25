@@ -23,6 +23,9 @@ importers:
       '@tauri-apps/plugin-dialog':
         specifier: 2.7.1
         version: 2.7.1
+      dompurify:
+        specifier: 3.4.5
+        version: 3.4.5
     devDependencies:
       '@tauri-apps/cli':
         specifier: 2.11.2
