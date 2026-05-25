@@ -1,0 +1,228 @@
+# CLAUDE.md — Toril
+
+> **Toril** — a MarkText-style WYSIWYG markdown editor built on **Tauri + TypeScript + Milkdown**.
+>
+> *The name:* in Spanish bullfighting, *el toril* is the pen where the bull waits before it charges
+> into the ring — literally "the bullpen." It's a nod to **Tauri** (the bull) and to writing (the pen),
+> with the bull-in-a-china-shop joke built in: the editor is the bull, safely penned, doing delicate work.
+
+> **Finalized build plan.** Keep this file at the repo root — Claude Code reads it every session.
+> The stack is **decided** (see §2); do not re-litigate it. Build **milestone by milestone** (§8),
+> and treat §3 (Data Safety) as hard rules, not suggestions.
+
+---
+
+## 1. Goal
+
+**Toril** is a desktop markdown editor with the look and feel of **MarkText**:
+
+- **Inline WYSIWYG** editing — type `# ` and the line becomes a heading *in place*; `**bold**` renders as you go. The editing surface *is* the rendered surface (no separate preview pane required).
+- CommonMark + GitHub Flavored Markdown (tables, task lists, strikethrough, autolinks, footnotes).
+- Math (KaTeX), YAML front matter, emoji shortcodes.
+- Export to **HTML** and **PDF**.
+- Multiple themes (light + dark) and three edit modes: **Source**, **Typewriter**, **Focus**.
+- Paste image from clipboard.
+- File/folder sidebar + multi-document tabs.
+
+**Files are plain `.md` in ordinary folders — stay Obsidian-vault compatible.** No proprietary container, no sidecar lock-in. The folder a user opens may also be a live Obsidian vault.
+
+Primary target: **Windows `.exe`**. macOS/Linux come free from the stack but are not the focus.
+
+---
+
+## 2. Stack (decided — do not change without explicit instruction)
+
+| Layer | Choice | Role |
+|---|---|---|
+| App shell / packaging | **Tauri 2.x** | Native window, menus, Rust commands, small `.exe`, NSIS/MSI installers |
+| Core (backend) | **Rust** | All filesystem I/O, exports, file watching, app logic |
+| WYSIWYG editor | **Milkdown** (ProseMirror-based) | Markdown-first inline WYSIWYG; plugin-driven |
+| Source-mode editor | **CodeMirror 6** | Shown when user switches to Source mode |
+| Frontend build | **Vite + TypeScript** (strict) | Dev server + bundling |
+| MD parsing (Rust) | **comrak** | CommonMark + GFM for HTML/PDF export and any backend parsing |
+
+**Pin every dependency** (Cargo.lock committed; exact versions in package.json). Upgrade deliberately, never on a whim.
+
+### Why this stack (so it isn't second-guessed later)
+Inline WYSIWYG is the hard part of any markdown editor, and the mature engines for it live in the browser DOM (ProseMirror/Milkdown). Tauri gives a Rust core + system webview, so we get that mature editor **and** a small native binary. The whole app ends up memory-safe (Rust core + GC'd webview runtime) without any C/C++ in our code.
+
+### Build-machine prerequisites (Windows)
+- Rust stable (`rustup`)
+- Node.js LTS + **pnpm**
+- **Microsoft C++ Build Tools** (MSVC) — required to compile Rust on Windows
+- **WebView2 runtime** — preinstalled on Win11; installer bootstraps it on Win10
+
+---
+
+## 3. Data Safety — NON-NEGOTIABLE
+
+This is a notes app. The user's writing is the only thing that truly matters; everything else is replaceable. These three rules outrank features.
+
+1. **Atomic saves.** Never write a file in place. Write to a temp file in the same directory, flush/fsync, then atomically rename over the target. A crash mid-save must never corrupt or truncate an existing note.
+2. **Lossless round-tripping.** Source ⇄ WYSIWYG must not lose or mangle content. Maintain **one** canonical markdown representation; never keep two diverging buffers. All serialization goes through a single module (`serializer.ts`) so the conversion has exactly one source of truth.
+3. **Treat opened files as untrusted.** A `.md` file (or pasted content) can carry hostile HTML. Sanitize anything rendered in the webview so embedded markup cannot execute script. This is an *injection* concern, separate from memory safety — the language choice does not cover it.
+
+If a feature would compromise any of these three, the feature loses.
+
+---
+
+## 4. Project Structure
+
+```
+toril/
+├── CLAUDE.md                  # this file
+├── package.json               # frontend deps + scripts (pinned)
+├── vite.config.ts
+├── index.html
+├── src/                       # FRONTEND (TypeScript, strict)
+│   ├── main.ts                # bootstrap
+│   ├── editor/
+│   │   ├── milkdown.ts        # WYSIWYG setup + plugins
+│   │   ├── codemirror.ts      # source-mode editor
+│   │   ├── serializer.ts      # the ONE markdown <-> doc converter (§3.2)
+│   │   └── modes.ts           # source / typewriter / focus toggles
+│   ├── ui/
+│   │   ├── sidebar.ts         # file tree
+│   │   ├── tabs.ts            # open-document tabs
+│   │   └── statusbar.ts       # word count, cursor position
+│   ├── themes/                # CSS theme files
+│   ├── sanitize.ts            # HTML sanitization (§3.3)
+│   └── ipc.ts                 # thin wrappers around Tauri invoke()
+└── src-tauri/                 # BACKEND (Rust)
+    ├── Cargo.toml             # pinned
+    ├── tauri.conf.json
+    ├── build.rs
+    └── src/
+        ├── main.rs            # Tauri builder + command registration
+        ├── commands/
+        │   ├── files.rs       # open / save (ATOMIC) / save_as / recent
+        │   ├── workspace.rs   # open folder, list tree, watch (notify crate)
+        │   ├── export.rs      # to_html, to_pdf
+        │   └── images.rs      # persist pasted clipboard image into assets
+        ├── markdown.rs        # comrak config (GFM, front matter, footnotes)
+        └── settings.rs        # persisted prefs (theme, mode, last folder)
+```
+
+---
+
+## 5. Backend ↔ Frontend Contract (Tauri commands)
+
+Authoritative list. Update it here whenever a command changes. **All disk access lives in Rust** — the frontend never touches the filesystem directly; it asks via `invoke()`.
+
+| Command | Args | Returns | Notes |
+|---|---|---|---|
+| `open_file` | `path` | `{ path, content }` | UTF-8 read |
+| `save_file` | `path, content` | `()` | **atomic** (temp + fsync + rename) — §3.1 |
+| `save_file_as` | `content` | `path` | native dialog |
+| `open_folder` | `path` | `FileNode[]` | recursive `.md` tree |
+| `watch_folder` | `path` | event stream | external-change events (`notify` crate) |
+| `export_html` | `content, theme` | `path` | comrak → standalone styled HTML |
+| `export_pdf` | `content, theme` | `path` | webview print-to-PDF (§7) |
+| `save_clipboard_image` | `bytes, doc_path` | `relative_path` | writes to `./assets/`, returns MD-relative path |
+| `load_settings` / `save_settings` | — / `Settings` | `Settings` / `()` | JSON in app config dir |
+
+---
+
+## 6. Feature ↔ Milkdown Plugin Mapping
+
+| Feature | Implementation |
+|---|---|
+| WYSIWYG core | `@milkdown/core` + `@milkdown/preset-commonmark` |
+| GFM (tables, task lists, strikethrough) | `@milkdown/preset-gfm` |
+| Math (KaTeX) | `@milkdown/plugin-math` |
+| Emoji shortcodes | `@milkdown/plugin-emoji` |
+| Inline / slash shortcuts | `@milkdown/plugin-slash` + keymap config |
+| Front matter | comrak handles on export; render as a collapsed block in-editor |
+| Source mode | swap Milkdown view for CodeMirror 6, both backed by `serializer.ts` |
+| Typewriter mode | scroll controller keeps caret line vertically centered |
+| Focus mode | CSS dims every block except the active one |
+| Themes | swappable CSS + Milkdown theme; choice persisted in settings |
+| Clipboard image paste | intercept `paste` → `save_clipboard_image` → insert `![](assets/…)` |
+
+---
+
+## 7. Export Strategy
+
+**HTML:** `export_html` runs comrak with GFM + math + front-matter options, wraps the output in a template that inlines the selected theme CSS + KaTeX stylesheet. Standalone, opens in any browser.
+
+**PDF (in order of preference):**
+1. **Webview print-to-PDF** — render the export HTML in a hidden Tauri webview, print to PDF. No extra binary, best fidelity. *Preferred.*
+2. `headless_chrome` crate — heavier, needs Chrome present.
+3. Pure-Rust PDF — avoid; weak CSS/KaTeX support.
+
+Ship HTML export in Phase 3; add PDF after it's stable.
+
+---
+
+## 8. Milestones (with gates)
+
+One milestone per branch. Each ends runnable + committed. Don't skip the gates.
+
+**Phase 0 — Scaffold**
+- `create-tauri-app` (Vite + TS). Window opens; one round-trip command works.
+
+**Phase 1 — MVP editor + data safety**
+- Milkdown WYSIWYG editing a buffer; `serializer.ts` is the only converter.
+- `open_file` / `save_file` (**atomic**) / `save_file_as`; Ctrl+S; dirty indicator; title shows file + `*`.
+- **GATE:** automated round-trip test — open a fixture covering headings, lists, tables, code fences, math, front matter → serialize → compare. Must be lossless before any further features. (§3.2)
+- **GATE:** atomic-save test — interrupting a save must leave the original intact. (§3.1)
+
+**Phase 2 — Workspace**
+- `open_folder` + sidebar tree; multi-document tabs.
+- `watch_folder` + reload prompt on external change (the folder may be a live Obsidian vault).
+
+**Phase 3 — MarkText parity**
+- GFM, math, emoji plugins.
+- Source / Typewriter / Focus modes.
+- Themes (≥1 light, ≥1 dark) + persisted settings.
+- `sanitize.ts` wired into all rendered content. (§3.3)
+- Clipboard image paste.
+- HTML export, then PDF export.
+
+**Phase 4 — Polish & ship**
+- App menu, shortcut reference, word count in status bar.
+- `pnpm tauri build` → `.exe` + NSIS installer.
+
+---
+
+## 9. Windows Packaging
+
+```bash
+pnpm install
+pnpm tauri dev          # development
+
+pnpm tauri build        # production -> .exe + installer
+```
+
+Output: `src-tauri/target/release/` (raw `.exe`) and `…/bundle/` (NSIS + MSI).
+
+In `tauri.conf.json`: `bundle.targets = ["nsis","msi"]`; `bundle.windows.webviewInstallMode = "downloadBootstrapper"` (handles Win10 WebView2); set icon, product name, version, publisher.
+
+Code signing is optional for personal use; without it, Windows SmartScreen warns on first run. That's expected, not a bug — note it for the user.
+
+---
+
+## 10. Conventions for Claude Code
+
+- **Read this file first every session.** §3 (Data Safety), §5 (command contract), and §8 (milestones) are the source of truth — update them here when they change.
+- All disk I/O stays in Rust commands. The frontend never bypasses with web file APIs.
+- All markdown conversion goes through `serializer.ts`. Never introduce a second conversion path.
+- Saves are always atomic (temp + fsync + rename).
+- Everything rendered in the webview passes through `sanitize.ts`.
+- Rust: edition 2021; `cargo fmt` + `cargo clippy` clean before any commit.
+- TS: `strict` on; no `any`.
+- One milestone per branch; conventional commits (`feat:`, `fix:`, `chore:`). Don't skip the Phase 1 gates.
+- When two designs compete, prefer the one that keeps `.md` files plain and portable (Obsidian-compatible).
+
+---
+
+## 11. Known Hard Parts / Risks
+
+- **Round-trip fidelity** (§3.2) is where most bugs hide — nested lists, table editing, code-fence boundaries. Lean on Milkdown's tested behavior; minimize custom schema. This is why it's a Phase 1 gate, not an afterthought.
+- **PDF fidelity** for KaTeX + code highlighting — validate early in Phase 3.
+- **External file changes** — the watcher + reload prompt matters more than it looks when the folder is also an Obsidian vault.
+- **WYSIWYG edge cases** generally — prefer configuring Milkdown over hand-rolling ProseMirror nodes.
+
+---
+
+*Pure-Rust (egui) split-pane alternative was considered and rejected: it would trade away the inline WYSIWYG feel that is the whole point. Decision is closed.*
