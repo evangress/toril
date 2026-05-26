@@ -24,6 +24,7 @@ import {
 } from "./ipc";
 import { Sidebar } from "./ui/sidebar";
 import { type TabState, TabManager } from "./ui/tabs";
+import { FormattingToolbar } from "./ui/toolbar";
 
 const WELCOME = `# Welcome to Toril
 
@@ -33,6 +34,7 @@ Open a folder to browse your notes, or start typing here.
 let editor: Editor;
 let tabs: TabManager;
 let sidebar: Sidebar;
+let formatToolbar: FormattingToolbar | null = null;
 
 let workspaceRoot: string | null = null;
 let unwatch: UnlistenFn | null = null;
@@ -89,6 +91,7 @@ function onDeactivate(tab: TabState): void {
 function onActivate(tab: TabState): void {
   loadIntoEditor(tab.content);
   updateTitle();
+  formatToolbar?.refresh();
   scheduleSessionSave();
 }
 
@@ -347,7 +350,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   const editorRoot = document.querySelector<HTMLElement>("#editor");
   const tabbar = document.querySelector<HTMLElement>("#tabbar");
   const sidebarEl = document.querySelector<HTMLElement>("#sidebar");
-  if (!editorRoot || !tabbar || !sidebarEl) return;
+  const formatBar = document.querySelector<HTMLElement>("#format-toolbar");
+  if (!editorRoot || !tabbar || !sidebarEl || !formatBar) return;
 
   sidebar = new Sidebar(sidebarEl, { onOpenFile: (p) => void openPath(p) });
   sidebar.setRoot(null, []);
@@ -356,6 +360,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   loading = true;
   editor = await createEditor({ root: editorRoot, initial: "", onChange: onEditorChange });
   loading = false;
+  formatToolbar = new FormattingToolbar(formatBar, editor, editorRoot);
 
   document.querySelector("#btn-new")?.addEventListener("click", () => doNew());
   document.querySelector("#btn-open")?.addEventListener("click", () => void doOpenFile());
