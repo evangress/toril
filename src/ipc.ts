@@ -82,3 +82,21 @@ export function onWorkspaceChange(
 ): Promise<UnlistenFn> {
   return listen<WorkspaceChange>("workspace:change", (event) => handler(event.payload));
 }
+
+/** Persisted session + preferences (mirrors Rust `settings::Settings`, §5). */
+export interface Settings {
+  version: number;
+  last_folder: string | null;
+  open_files: string[];
+  active_file: string | null;
+}
+
+/** Load persisted settings; resolves to defaults if none exist or the file is corrupt. */
+export function loadSettings(): Promise<Settings> {
+  return invoke<Settings>("load_settings");
+}
+
+/** Atomically persist settings (§3.1). Best-effort — callers ignore failures. */
+export function saveSettings(settings: Settings): Promise<void> {
+  return invoke<void>("save_settings", { settings });
+}

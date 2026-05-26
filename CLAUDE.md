@@ -26,6 +26,7 @@ What exists today:
 - **File commands** (§5, all disk I/O in Rust): `open_file`, `save_file`, `save_file_as` in `src-tauri/src/commands/files.rs`. Writes go through the **`fsatomic`** crate — a dependency-free, unit-tested atomic-write core (temp + fsync + rename, §3.1).
 - **Workspace** (Phase 2): `open_folder` + `watch_folder` in `src-tauri/src/commands/workspace.rs`. Folder scanning lives in the dependency-free **`vaultscan`** crate (`.md` tree, skips hidden/`.obsidian`, prunes asset-only dirs). `watch_folder` uses the **`notify`** crate and emits `workspace:change` events. Frontend: `src/ui/sidebar.ts` (file tree), `src/ui/tabs.ts` (multi-document tabs, one shared editor + per-tab buffer), with external-change reload prompts in `main.ts`.
 - **App controller** (`src/main.ts`): New/Open/Open Folder/Save/Save As (buttons + Ctrl+N, Ctrl+O, Ctrl+Shift+O, Ctrl+S, Ctrl+Shift+S), dirty flag, title shows `name *`. All backend calls go through `src/ipc.ts` (§5 rule).
+- **Session memory** (`src-tauri/src/settings.rs`): `load_settings` / `save_settings` (§5) persist a versioned `session.json` to the app config dir (outside the vault) via `fsatomic`. On launch `main.ts` restores the last workspace folder + open file tabs + active tab; only *paths* are stored (files re-read from disk, §3.2), and missing folders/files are skipped defensively. Best-effort — a failed save never interrupts editing. Theme/mode prefs not stored yet (Phase 3).
 - **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 31.
 
 **Not yet done / deferred:**
@@ -227,7 +228,7 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - GFM (done) + emoji plugin (`@milkdown/plugin-emoji`, maintained).
 - **Math (KaTeX) — DEFERRED.** The only Milkdown math plugin (`@milkdown/plugin-math`) is npm-**deprecated** ("no longer supported"), so it is omitted per the healthy-dependency rule (§2/§10). Revisit if a maintained math plugin appears, or if we hand-roll one on a maintained KaTeX + `remark-math` base. Until then the round-trip gate stays CommonMark + GFM + emoji.
 - Source / Typewriter / Focus modes.
-- Themes (≥1 light, ≥1 dark) + persisted settings.
+- Themes (≥1 light, ≥1 dark) + persisted settings. ✅ *Session persistence done* (`settings.rs`: last folder + open files/active tab restored on launch); theme/mode prefs still to add.
 - `sanitize.ts` (§3.3): ✅ module + unit tests done, editor audited safe (renders HTML as inert text). ⏳ remaining: wire it into HTML/PDF export output (the real HTML sink).
 - Clipboard image paste.
 - HTML export, then PDF export.

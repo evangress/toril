@@ -8,8 +8,10 @@ import type { Editor } from "@milkdown/kit/core";
 import { createEditor } from "./editor/milkdown";
 import { docToMarkdown, markdownToDoc } from "./editor/serializer";
 import {
+  type Settings,
   type UnlistenFn,
   type WorkspaceChange,
+  loadSettings,
   onWorkspaceChange,
   openFile,
   openFolder,
@@ -17,6 +19,7 @@ import {
   pickFolder,
   saveFile,
   saveFileAs,
+  saveSettings,
   watchFolder,
 } from "./ipc";
 import { Sidebar } from "./ui/sidebar";
@@ -34,6 +37,7 @@ let sidebar: Sidebar;
 let workspaceRoot: string | null = null;
 let unwatch: UnlistenFn | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let sessionTimer: ReturnType<typeof setTimeout> | null = null;
 
 let loading = false; // suppress the dirty flag during programmatic loads
 /** Paths we just wrote, with a timestamp — to ignore our own watcher events. */
@@ -85,6 +89,7 @@ function onDeactivate(tab: TabState): void {
 function onActivate(tab: TabState): void {
   loadIntoEditor(tab.content);
   updateTitle();
+  scheduleSessionSave();
 }
 
 function onCloseRequest(tab: TabState): void {
@@ -94,6 +99,7 @@ function onCloseRequest(tab: TabState): void {
     openDocument(null, "Untitled", ""); // never leave zero tabs
   }
   updateTitle();
+  scheduleSessionSave();
 }
 
 // ---- Open / save -----------------------------------------------------------
@@ -144,6 +150,7 @@ async function loadWorkspace(path: string): Promise<void> {
   if (unwatch) unwatch();
   unwatch = await onWorkspaceChange(handleWorkspaceChange);
   await watchFolder(path);
+  scheduleSessionSave();
 }
 
 function recordSelfWrite(path: string): void {
@@ -190,6 +197,7 @@ async function doSaveAs(): Promise<void> {
     updateTitle();
     setStatus(`Saved ${basename(path)}`);
     if (workspaceRoot && path.startsWith(workspaceRoot)) scheduleSidebarRefresh();
+    scheduleSessionSave(); // the tab now has a path — make it restorable
   } catch (e) {
     setStatus(`Save failed: ${String(e)}`);
   }
@@ -253,6 +261,66 @@ async function handleWorkspaceChange(change: WorkspaceChange): Promise<void> {
   }
 }
 
+// ---- Session memory: remember last folder + open files ---------------------
+
+/**
+ * Snapshot the session (workspace folder + file-backed tabs + the active one)
+ * to disk. Debounced and best-effort — failures are swallowed so persistence
+ * never interferes with editing. Only paths are stored, never buffer contents,
+ * so the file on disk remains the single source of truth (§3.2).
+ */
+function scheduleSessionSave(): void {
+  if (sessionTimer) clearTimeout(sessionTimer);
+  sessionTimer = setTimeout(() => {
+    const settings: Settings = {
+      version: 1,
+      last_folder: workspaceRoot,
+      open_files: tabs
+        .list()
+        .map((t) => t.path)
+        .filter((p): p is string => p !== null),
+      active_file: tabs.active()?.path ?? null,
+    };
+    void saveSettings(settings).catch(() => {}); // best-effort
+  }, 400);
+}
+
+/**
+ * Reopen the last session: the workspace folder, then each previously open
+ * file, focusing the one that was active. Fully defensive — a folder or file
+ * that has since moved or been deleted is skipped silently, and a failed load
+ * simply restores nothing. Opened files are read fresh from disk (§3.2).
+ */
+async function restoreSession(): Promise<void> {
+  let settings: Settings;
+  try {
+    settings = await loadSettings();
+  } catch {
+    return;
+  }
+
+  if (settings.last_folder) {
+    try {
+      await loadWorkspace(settings.last_folder);
+    } catch {
+      // folder gone/moved — skip, leave workspaceRoot unset
+    }
+  }
+
+  for (const path of settings.open_files) {
+    try {
+      await openPath(path); // reads from disk; throws if the file is missing
+    } catch {
+      // file gone — skip it
+    }
+  }
+
+  if (settings.active_file) {
+    const tab = tabs.byPath(settings.active_file);
+    if (tab) tabs.setActive(tab.id);
+  }
+}
+
 // ---- Wiring ----------------------------------------------------------------
 
 function installShortcuts(): void {
@@ -296,6 +364,10 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelector("#btn-save-as")?.addEventListener("click", () => void doSaveAs());
   installShortcuts();
 
-  // Start with one welcome tab.
-  openDocument(null, "Untitled", WELCOME);
+  // Restore the last session (folder + open files); fall back to a welcome tab
+  // if there was nothing to restore or every remembered path is now gone.
+  await restoreSession();
+  if (!tabs.active()) {
+    openDocument(null, "Untitled", WELCOME);
+  }
 });

@@ -1,4 +1,5 @@
 mod commands;
+mod settings;
 
 use commands::workspace::WatcherState;
 
@@ -13,6 +14,8 @@ pub fn run() {
             commands::files::save_file_as,
             commands::workspace::open_folder,
             commands::workspace::watch_folder,
+            settings::load_settings,
+            settings::save_settings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
