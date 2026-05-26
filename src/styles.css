@@ -202,6 +202,18 @@ body {
   padding: 0 1.5rem;
 }
 
+/* Emoji are rendered by @milkdown/plugin-emoji as twemoji <img class="emoji">
+   images at their intrinsic 72×72 size (twemoji sets no width/height — it
+   relies on CSS). Constrain them to the surrounding text so they sit inline
+   at 1em instead of towering over neighbouring characters. */
+.editor .milkdown img.emoji {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin: 0 0.05em 0 0.1em;
+  vertical-align: -0.1em;
+}
+
 /* ---- Status bar ---- */
 #statusbar {
   padding: 0.25rem 0.75rem;
