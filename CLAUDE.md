@@ -182,6 +182,7 @@ Authoritative list. Update it here whenever a command changes. **All disk access
 | Math (KaTeX) | **Deferred** — `@milkdown/plugin-math` is deprecated; omitted until a maintained option exists (§8) |
 | Emoji shortcodes | `@milkdown/plugin-emoji` |
 | Inline / slash shortcuts | `@milkdown/plugin-slash` + keymap config |
+| Formatting toolbar | toolbar UI in the edit pane → Milkdown commands via `callCommand` (headings H1–H6, marks, lists, blockquote, code, link, image, table, HR; emoji picker); never inserts raw markdown text (§3.2) |
 | Front matter | comrak handles on export; render as a collapsed block in-editor |
 | Source mode | swap Milkdown view for CodeMirror 6, both backed by `serializer.ts` |
 | Typewriter mode | scroll controller keeps caret line vertically centered |
@@ -231,6 +232,11 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - Themes (≥1 light, ≥1 dark) + persisted settings. ✅ *Session persistence done* (`settings.rs`: last folder + open files/active tab restored on launch); theme/mode prefs still to add.
 - `sanitize.ts` (§3.3): ✅ module + unit tests done, editor audited safe (renders HTML as inert text). ⏳ remaining: wire it into HTML/PDF export output (the real HTML sink).
 - Clipboard image paste.
+- **Formatting toolbar (edit pane).** A toolbar above/within the editor whose buttons insert or toggle markdown components. **Each button drives a Milkdown/ProseMirror command via the editor's `callCommand`** (e.g. `wrapInHeadingCommand`, `toggleStrongCommand`, `wrapInBulletListCommand`, `insertImageCommand`, `insertTableCommand`) — it must **never insert raw markdown characters as text**. That keeps the document in one canonical form and routes every change through `serializer.ts` like any other edit, so there is no second conversion path (§3.2). Buttons reflect active state where the command exposes it (e.g. "bold" lit when the selection is strong). Lives as a new `src/ui/` component, distinct from the existing file-actions `#toolbar`; complements the keymap shortcuts rather than replacing them.
+  - **Components (the coverage target — MarkText menu + the [Markdown Guide cheat sheet](https://www.markdownguide.org/cheat-sheet/)):** *Basic* — headings **H1–H6**, bold, italic, blockquote, ordered (`1.`) / unordered lists, inline code, horizontal rule, link, **image** (toolbar insert; clipboard-paste path is separate — see §6). *Extended (GFM, supported today)* — table, fenced code block, strikethrough, task list, emoji (via `@milkdown/plugin-emoji` — a picker that inserts `:shortcode:`). MarkText extras worth including: insert front-matter block and a **clear-formatting** action.
+  - **Deferred — not exposed until a healthy plugin + lossless round-trip exist (§2/§10), same policy as math:** cheat-sheet *footnote, heading ID, definition list, highlight (`==`), subscript, superscript*, and *math (KaTeX)* (already deferred). A button is added **only** once that component round-trips losslessly; never ship a control for syntax the editor can't represent.
+  - **Deliberately omitted:** *underline* — it has no markdown form (MarkText emits raw `<u>` HTML), so a button would inject non-portable HTML and break the plain-`.md` / Obsidian goal (§1).
+- **GATE:** toolbar round-trip — applying a format via a button then serializing must yield the same canonical markdown as typing the equivalent syntax, and the suite must assert no raw-markdown-text insertion. Add toolbar-command fixtures to `tests/roundtrip.test.ts` (§3.2).
 - HTML export, then PDF export.
 
 **Phase 4 — Polish & ship**
