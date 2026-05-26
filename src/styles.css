@@ -1,3 +1,9 @@
+/* ---- Themes (§6) ----
+   Colors are CSS variables keyed off `html[data-theme]`. `theme.ts` resolves
+   the "system" preference to a concrete light/dark value and writes the
+   attribute, so an explicit choice fully overrides the OS. Light is the default
+   (:root). The media query is a no-flash fallback for the instant before
+   theme.ts runs (only while no attribute is set yet). */
 :root {
   --bg: #ffffff;
   --fg: #1a1a1a;
@@ -6,6 +12,9 @@
   --toolbar-bg: #f6f6f7;
   --sidebar-bg: #fafafa;
   --active-bg: #e8effd;
+  --btn-bg: #ffffff;
+  --code-bg: #f0f0f3;
+  --table-stripe: #f6f6f7;
 
   font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
   font-size: 16px;
@@ -13,6 +22,41 @@
   background-color: var(--bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark palette. Applied for an explicit `data-theme="dark"`, and (no-flash)
+   for a system-dark OS before any preference has been resolved. */
+html[data-theme="dark"],
+html:not([data-theme]) {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] {
+  --bg: #1e1e22;
+  --fg: #e8e8ea;
+  --muted: #9aa0a6;
+  --border: #34343a;
+  --toolbar-bg: #26262b;
+  --sidebar-bg: #232328;
+  --active-bg: #2f3a4d;
+  --btn-bg: #2f2f35;
+  --code-bg: #2a2a30;
+  --table-stripe: #26262b;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme]) {
+    --bg: #1e1e22;
+    --fg: #e8e8ea;
+    --muted: #9aa0a6;
+    --border: #34343a;
+    --toolbar-bg: #26262b;
+    --sidebar-bg: #232328;
+    --active-bg: #2f3a4d;
+    --btn-bg: #2f2f35;
+    --code-bg: #2a2a30;
+    --table-stripe: #26262b;
+  }
 }
 
 * {
@@ -52,12 +96,24 @@ body {
   padding: 0.3rem 0.7rem;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: #fff;
+  background: var(--btn-bg);
+  color: var(--fg);
   cursor: pointer;
 }
 
 #toolbar button:hover {
   border-color: var(--muted);
+}
+
+#theme-select {
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--btn-bg);
+  color: var(--fg);
+  cursor: pointer;
 }
 
 .doc-title {
@@ -142,7 +198,7 @@ body {
 /* ---- Main: tab bar + editor ---- */
 #main {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto 1fr;
   min-height: 0;
   min-width: 0;
 }
@@ -191,6 +247,94 @@ body {
   color: var(--fg);
 }
 
+/* ---- Formatting toolbar (edit pane, §6) ---- */
+.format-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.15rem;
+  padding: 0.3rem 0.5rem;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.fmt-btn {
+  font: inherit;
+  font-size: 0.85rem;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: none;
+  color: var(--fg);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.fmt-btn:hover {
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+.fmt-btn[data-active="true"] {
+  background: var(--active-bg);
+  border-color: var(--muted);
+}
+
+.fmt-heading {
+  font: inherit;
+  font-size: 0.8rem;
+  height: 1.9rem;
+  padding: 0 0.3rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.fmt-sep {
+  width: 1px;
+  height: 1.2rem;
+  margin: 0 0.25rem;
+  background: var(--border);
+}
+
+.fmt-emoji {
+  position: relative;
+  display: inline-flex;
+}
+
+.fmt-emoji-menu {
+  position: absolute;
+  top: 2.1rem;
+  left: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 0.1rem;
+  padding: 0.35rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 18%);
+}
+
+.fmt-emoji-item {
+  font-size: 1.1rem;
+  width: 1.9rem;
+  height: 1.9rem;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.fmt-emoji-item:hover {
+  background: var(--active-bg);
+}
+
 .editor {
   overflow-y: auto;
   padding: 2rem 0;
@@ -214,6 +358,23 @@ body {
   vertical-align: -0.1em;
 }
 
+/* Editor element colors follow the active theme rather than Milkdown's nord
+   theme, which self-switches via `prefers-color-scheme`. These rules outrank
+   nord's single-class selectors, so the prose code/table backgrounds and
+   borders track our chosen theme even when it disagrees with the OS scheme. */
+.editor .milkdown pre,
+.editor .milkdown code {
+  background-color: var(--code-bg);
+}
+
+.editor .milkdown :where(tr, th, td) {
+  border-color: var(--border);
+}
+
+.editor .milkdown :where(td, th):nth-child(odd) {
+  background-color: var(--table-stripe);
+}
+
 /* ---- Status bar ---- */
 #statusbar {
   padding: 0.25rem 0.75rem;
@@ -221,20 +382,4 @@ body {
   color: var(--muted);
   border-top: 1px solid var(--border);
   min-height: 1.6rem;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1e1e22;
-    --fg: #e8e8ea;
-    --muted: #9aa0a6;
-    --border: #34343a;
-    --toolbar-bg: #26262b;
-    --sidebar-bg: #232328;
-    --active-bg: #2f3a4d;
-  }
-  #toolbar button {
-    background: #2f2f35;
-    color: var(--fg);
-  }
 }

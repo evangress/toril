@@ -89,6 +89,8 @@ export interface Settings {
   last_folder: string | null;
   open_files: string[];
   active_file: string | null;
+  /** Theme preference: "system" | "light" | "dark". `null` ⇒ frontend default. */
+  theme: string | null;
 }
 
 /** Load persisted settings; resolves to defaults if none exist or the file is corrupt. */
@@ -99,4 +101,22 @@ export function loadSettings(): Promise<Settings> {
 /** Atomically persist settings (§3.1). Best-effort — callers ignore failures. */
 export function saveSettings(settings: Settings): Promise<void> {
   return invoke<void>("save_settings", { settings });
+}
+
+/**
+ * Render canonical markdown to an HTML *body* fragment via comrak (Rust, §7).
+ * The result is UNTRUSTED HTML — the caller MUST pass it through `sanitizeHtml`
+ * (§3.3) before it reaches the DOM or a written file. No disk access here.
+ */
+export function markdownToHtml(content: string): Promise<string> {
+  return invoke<string>("markdown_to_html", { content });
+}
+
+/**
+ * Prompt for a destination and atomically write an already-built, already-
+ * sanitized standalone HTML document (§3.1/§3.3). Returns the chosen path, or
+ * `null` if the user cancelled.
+ */
+export function exportHtml(html: string, defaultName: string): Promise<string | null> {
+  return invoke<string | null>("export_html", { html, defaultName });
 }
