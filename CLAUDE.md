@@ -279,6 +279,8 @@ In `tauri.conf.json`: `bundle.targets = ["nsis","msi"]`; `bundle.windows.webview
 
 Code signing is optional for personal use; without it, Windows SmartScreen warns on first run. That's expected, not a bug — note it for the user.
 
+**Releases** are cut by pushing a `v*` git tag (e.g. `v0.1.0-alpha.5`), which triggers `.github/workflows/release.yml` — a cross-platform `tauri-action` build that publishes the installers as a GitHub prerelease. The point release is the next `-alpha.N`. **Always add the release's notes to `CHANGELOG.md` before pushing the tag** (see §10); the changelog is the source of truth for the GitHub Release body. After the build finishes, set the Release notes from that changelog entry.
+
 ---
 
 ## 10. Conventions for Claude Code
@@ -291,6 +293,7 @@ Code signing is optional for personal use; without it, Windows SmartScreen warns
 - Rust: edition 2024; `cargo fmt` + `cargo clippy` clean before any commit. (When `create-tauri-app` scaffolds `src-tauri/` with edition 2021, bump it to 2024 to match.)
 - TS: `strict` on; no `any`.
 - One milestone per branch; conventional commits (`feat:`, `fix:`, `chore:`). Don't skip the Phase 1 gates.
+- **Before performing a release (pushing a `v*` tag, §9), add that version's release notes to `CHANGELOG.md`** — it is the source of truth for the GitHub Release body.
 - When two designs compete, prefer the one that keeps `.md` files plain and portable (Obsidian-compatible).
 
 ---
