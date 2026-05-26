@@ -31,6 +31,8 @@ pub struct Settings {
     pub open_files: Vec<String>,
     /// Which open file was focused, if any.
     pub active_file: Option<String>,
+    /// Theme preference: "system" | "light" | "dark". `None` ⇒ frontend default.
+    pub theme: Option<String>,
 }
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {

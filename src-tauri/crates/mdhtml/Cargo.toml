@@ -1,0 +1,11 @@
+[package]
+name = "mdhtml"
+version = "0.1.0"
+edition = "2024"
+description = "comrak wrapper: canonical markdown → HTML body for Toril export (CLAUDE.md §7). No Tauri dependency so the render config is unit-testable without the webview."
+
+# comrak is the decided markdown engine for backend/export (§2). Kept in this
+# small crate (like fsatomic/vaultscan) so `cargo test -p mdhtml` runs without
+# the platform webview toolchain.
+[dependencies]
+comrak = "0.52"

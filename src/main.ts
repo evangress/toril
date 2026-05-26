@@ -7,11 +7,15 @@ import "./styles.css";
 import type { Editor } from "@milkdown/kit/core";
 import { createEditor } from "./editor/milkdown";
 import { docToMarkdown, markdownToDoc } from "./editor/serializer";
+import { buildStandaloneHtml } from "./export/html";
+import { sanitizeHtml } from "./sanitize";
 import {
   type Settings,
   type UnlistenFn,
   type WorkspaceChange,
+  exportHtml,
   loadSettings,
+  markdownToHtml,
   onWorkspaceChange,
   openFile,
   openFolder,
@@ -24,6 +28,7 @@ import {
 } from "./ipc";
 import { Sidebar } from "./ui/sidebar";
 import { type TabState, TabManager } from "./ui/tabs";
+import { ThemeController, isTheme } from "./ui/theme";
 import { FormattingToolbar } from "./ui/toolbar";
 
 const WELCOME = `# Welcome to Toril
@@ -35,6 +40,7 @@ let editor: Editor;
 let tabs: TabManager;
 let sidebar: Sidebar;
 let formatToolbar: FormattingToolbar | null = null;
+let theme: ThemeController | null = null;
 
 let workspaceRoot: string | null = null;
 let unwatch: UnlistenFn | null = null;
@@ -211,6 +217,31 @@ function doNew(): void {
   setStatus("New document");
 }
 
+// ---- Export ----------------------------------------------------------------
+
+/**
+ * Export the active document to a standalone HTML file. The pipeline keeps the
+ * one sanitization path (§3.3): comrak renders in Rust → the untrusted HTML is
+ * sanitized here via `sanitizeHtml` → wrapped in a self-contained document →
+ * written atomically in Rust. Disk access never leaves the backend (§10).
+ */
+async function doExportHtml(): Promise<void> {
+  const tab = tabs.active();
+  if (!tab) return;
+  try {
+    const markdown = docToMarkdown(editor);
+    const dirty = await markdownToHtml(markdown); // untrusted comrak output
+    const safe = sanitizeHtml(dirty); // §3.3 chokepoint — before it hits a file
+    const title = tab.name.replace(/\.(md|markdown)$/i, "");
+    const html = buildStandaloneHtml(safe, { title, dark: theme?.resolved() === "dark" });
+    const suggested = `${title || "untitled"}.html`;
+    const path = await exportHtml(html, suggested);
+    if (path) setStatus(`Exported ${basename(path)}`);
+  } catch (e) {
+    setStatus(`Export failed: ${String(e)}`);
+  }
+}
+
 // ---- External changes ------------------------------------------------------
 
 function isSelfWrite(path: string): boolean {
@@ -283,6 +314,7 @@ function scheduleSessionSave(): void {
         .map((t) => t.path)
         .filter((p): p is string => p !== null),
       active_file: tabs.active()?.path ?? null,
+      theme: theme?.current() ?? null,
     };
     void saveSettings(settings).catch(() => {}); // best-effort
   }, 400);
@@ -300,6 +332,12 @@ async function restoreSession(): Promise<void> {
     settings = await loadSettings();
   } catch {
     return;
+  }
+
+  // Theme first, so the restored UI paints in the right palette.
+  if (theme && isTheme(settings.theme)) {
+    theme.applyInitial(settings.theme);
+    syncThemeSelect();
   }
 
   if (settings.last_folder) {
@@ -326,6 +364,12 @@ async function restoreSession(): Promise<void> {
 
 // ---- Wiring ----------------------------------------------------------------
 
+/** Reflect the current theme preference in the header selector. */
+function syncThemeSelect(): void {
+  const select = document.querySelector<HTMLSelectElement>("#theme-select");
+  if (select && theme) select.value = theme.current();
+}
+
 function installShortcuts(): void {
   window.addEventListener("keydown", (e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
@@ -342,6 +386,10 @@ function installShortcuts(): void {
         e.preventDefault();
         doNew();
         break;
+      case "e":
+        e.preventDefault();
+        void doExportHtml();
+        break;
     }
   });
 }
@@ -357,6 +405,16 @@ window.addEventListener("DOMContentLoaded", async () => {
   sidebar.setRoot(null, []);
   tabs = new TabManager(tabbar, { onDeactivate, onActivate, onCloseRequest });
 
+  // Theme controller is created before session restore so the restored UI
+  // paints in the saved palette; persists the preference on change.
+  theme = new ThemeController(() => scheduleSessionSave());
+  const themeSelect = document.querySelector<HTMLSelectElement>("#theme-select");
+  themeSelect?.addEventListener("change", () => {
+    const value = themeSelect.value;
+    if (isTheme(value)) theme?.set(value);
+  });
+  syncThemeSelect();
+
   loading = true;
   editor = await createEditor({ root: editorRoot, initial: "", onChange: onEditorChange });
   loading = false;
@@ -367,6 +425,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelector("#btn-open-folder")?.addEventListener("click", () => void doOpenFolder());
   document.querySelector("#btn-save")?.addEventListener("click", () => void doSave());
   document.querySelector("#btn-save-as")?.addEventListener("click", () => void doSaveAs());
+  document.querySelector("#btn-export")?.addEventListener("click", () => void doExportHtml());
   installShortcuts();
 
   // Restore the last session (folder + open files); fall back to a welcome tab
