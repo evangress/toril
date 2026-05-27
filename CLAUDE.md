@@ -61,7 +61,7 @@ cd src-tauri && cargo fmt --all && cargo clippy   # clean before commit (§10)
 
 **Build environment note.** The Rust **app** crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, the frontend (`pnpm build`/`test`/`typecheck`), the `fsatomic` tests, and `cargo generate-lockfile` all work, but a full `cargo build`/`tauri dev` will not link. The window must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`). `fsatomic` is split out partly so the §3.1 gate stays runnable everywhere.
 
-**Next: finish Phase 4** — done: Phase 3 plus Phase 4's status bar (word/char/reading-time + cursor), native menu, and a QoL batch (Find & Replace, Save All, toggle sidebar, unsaved-changes close guard); packaging ships via CI on each `v*` tag. Math **deferred** (deprecated plugin — §8); edit modes **dropped** (§8); PDF **deferred** (§7); shortcut-reference panel **deferred** (the menu lists shortcuts). Remaining is mostly shippable-quality work: optional code-signing (removes the SmartScreen warning — see the code-signing memory), and on-device verification of the GUI/Rust flows that can't be tested here.
+**Next: finish Phase 4** — done: Phase 3 plus Phase 4's status bar (word/char/reading-time + cursor), native menu, and a QoL batch (Find & Replace, Save All, toggle sidebar, unsaved-changes close guard); packaging ships via CI on each `v*` tag. Math **deferred** (deprecated plugin — §8); edit modes **dropped** (§8); PDF **deferred** (§7); shortcut-reference panel **deferred** (the menu lists shortcuts). Remaining is mostly shippable-quality work: optional code-signing (removes the SmartScreen warning — see the code-signing memory), and on-device verification of the GUI/Rust flows that can't be tested here. **A backlog of further QoL features to pull from is in §13.**
 
 ---
 
@@ -335,6 +335,31 @@ Code signing is optional for personal use; without it, Windows SmartScreen warns
 ## 12. Future Ideas (out of scope — do not build into current milestones)
 
 - **Multi-format structured editing (JSON / XML / YAML / TOML).** Idea: extend Toril into a human interface for machine-friendly formats, not just markdown. **Deferred** to keep the markdown editor whole; revisit only after it ships (possibly as a *separate*, structured-document-oriented app). If pursued, the shape is **one app with pluggable editor surfaces** — an `EditorProvider` registry keyed by file type, each provider honoring the §3.2 single-canonical-serializer contract. It is **not** Milkdown plugins (Milkdown/ProseMirror is prose-only; data formats need a structure-tree / typed-form engine, likely CodeMirror 6 + schema) and **not** a fork of the whole app (the Tauri shell, sidebar, tabs, and Rust file I/O are already format-agnostic — only the editor surface is markdown-specific). The hard part is lossless round-trip (§3.2), which is *worse* than markdown here: YAML comments/anchors/Norway-problem, JSON key order, XML namespaces/attribute order — a reordered key or dropped comment breaks machine consumers. Note: `tabs.ts` currently uses one shared Milkdown instance + per-tab buffers; multi-format would require per-tab provider instances.
+
+---
+
+## 13. Quality-of-life backlog (unscheduled, but fair game)
+
+Concrete QoL features to pull from when polishing — **in scope** (unlike §12), just not yet scheduled. Each note records *why* it's easy/valuable and which existing infra it leans on. Keep the project's rules: testable logic in `crates/*` or pure TS helpers, all disk I/O in Rust (§5/§10), one canonical serializer (§3.2), no unhealthy deps (§2).
+
+**Already shipped (v0.1.0-alpha.7/8), kept here for context:** reading time, toggle sidebar, Save All, unsaved-changes close guard, Find & Replace, clipboard image paste, status bar, native menu, themes, HTML + RTF export.
+
+**Easy (pure frontend, fully testable here):**
+- **Editor zoom** — `Ctrl +`/`-`/`0` adjusts an editor font-size CSS variable; persist in `Settings` (like `theme`/`sidebar_visible`).
+- **Spellcheck** — ensure the ProseMirror editable carries `spellcheck="true"` so the webview's native squiggles show. Near-zero code; verify on-device.
+- **Tab niceties** — middle-click to close, "Close others / Close all". `tabs.ts` is already a clean controller.
+
+**Easy–medium (small Rust / Tauri, needs on-device verify):**
+- **Auto-save** — debounced save of dirty *saved* files, mirroring `scheduleSessionSave`; reuse atomic `saveFile`; make it a toggle in `Settings`. Data-safety win (§3).
+- **Remember window size/position** — add the maintained `tauri-plugin-window-state` (vet health per §2) — a few lines.
+- **Recent files / recent folders** — extend the persisted session (`open_files`/`last_folder` already exist) with an MRU list; surface in the File menu.
+- **Open links in browser** (`Ctrl/Cmd`-click) — route through Tauri's shell-open.
+- **Drag-and-drop a `.md` onto the window to open it** — Tauri drag-drop event → existing `openPath`.
+
+**Medium (more UI / a new command, but high value):**
+- **Global workspace search ("find in files")** — a Rust command that scans the vault (natural sibling to the `vaultscan` crate, so the scan logic stays unit-testable) + a results panel. Distinct from the in-document Find & Replace already shipped.
+- **Sidebar file operations** — new / rename / delete / new-folder via a context menu, backed by new **atomic** Rust commands; mind the watcher interplay.
+- **Document outline / TOC panel** — list headings from the doc, click to scroll. Derive from the ProseMirror doc; medium because of the scroll-to mapping.
 
 ---
 
