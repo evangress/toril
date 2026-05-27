@@ -10,11 +10,13 @@
   <body>
     <header id="toolbar">
       <div class="actions">
+        <button id="btn-toggle-sidebar" title="Toggle Sidebar (Ctrl+\)">☰</button>
         <button id="btn-new" title="New (Ctrl+N)">New</button>
         <button id="btn-open" title="Open File (Ctrl+O)">Open</button>
         <button id="btn-open-folder" title="Open Folder (Ctrl+Shift+O)">Open Folder</button>
         <button id="btn-save" title="Save (Ctrl+S)">Save</button>
         <button id="btn-save-as" title="Save As (Ctrl+Shift+S)">Save As</button>
+        <button id="btn-save-all" title="Save All (Ctrl+Alt+S)">Save All</button>
         <button id="btn-export" title="Export to HTML (Ctrl+E)">Export HTML</button>
         <button id="btn-export-rtf" title="Export to RTF (Word/LibreOffice)">Export RTF</button>
       </div>
@@ -31,6 +33,7 @@
       <section id="main">
         <nav id="tabbar"></nav>
         <div id="format-toolbar" class="format-toolbar"></div>
+        <div id="searchbar"></div>
         <main id="editor" class="editor"></main>
       </section>
     </div>

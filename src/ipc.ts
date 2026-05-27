@@ -4,7 +4,8 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+import { ask, message, open as openDialog } from "@tauri-apps/plugin-dialog";
 
 export type { UnlistenFn } from "@tauri-apps/api/event";
 
@@ -89,6 +90,26 @@ export function onMenuAction(handler: (id: string) => void): Promise<UnlistenFn>
   return listen<string>("menu", (event) => handler(event.payload));
 }
 
+/**
+ * Guard the window's close button: when `hasUnsaved()` reports dirty documents,
+ * intercept the close, ask for confirmation, and only then destroy the window
+ * (§3 data safety). Returns once the handler is registered.
+ */
+export async function installCloseGuard(hasUnsaved: () => number): Promise<UnlistenFn> {
+  const win = getCurrentWindow();
+  return win.onCloseRequested(async (event) => {
+    const dirty = hasUnsaved();
+    if (dirty === 0) return; // nothing unsaved — let it close
+    event.preventDefault();
+    const noun = dirty === 1 ? "document has" : "documents have";
+    const discard = await ask(`${dirty} ${noun} unsaved changes. Close without saving?`, {
+      title: "Toril",
+      kind: "warning",
+    });
+    if (discard) await win.destroy();
+  });
+}
+
 /** Show the native "About Toril" dialog (Help menu). */
 export async function showAbout(): Promise<void> {
   let version = "";
@@ -112,6 +133,8 @@ export interface Settings {
   active_file: string | null;
   /** Theme preference: "system" | "light" | "dark". `null` ⇒ frontend default. */
   theme: string | null;
+  /** Whether the workspace sidebar is shown. `null` ⇒ visible (default). */
+  sidebar_visible: boolean | null;
 }
 
 /** Load persisted settings; resolves to defaults if none exist or the file is corrupt. */

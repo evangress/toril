@@ -11,6 +11,7 @@ import { $prose } from "@milkdown/kit/utils";
 import { Plugin, PluginKey } from "@milkdown/kit/prose/state";
 import { emoji } from "@milkdown/plugin-emoji";
 import { nord } from "@milkdown/theme-nord";
+import { searchPlugin } from "../ui/search";
 
 /**
  * Resolves a pasted image's bytes to a document-relative `src` to link, or
@@ -79,7 +80,8 @@ export function createEditor(options: CreateEditorOptions): Promise<Editor> {
     .use(commonmark)
     .use(gfm)
     .use(emoji)
-    .use(listener);
+    .use(listener)
+    .use(searchPlugin());
   if (onImagePaste) {
     editor = editor.use(imagePastePlugin(onImagePaste));
   }

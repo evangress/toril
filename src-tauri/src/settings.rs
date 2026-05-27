@@ -33,6 +33,8 @@ pub struct Settings {
     pub active_file: Option<String>,
     /// Theme preference: "system" | "light" | "dark". `None` ⇒ frontend default.
     pub theme: Option<String>,
+    /// Whether the workspace sidebar is shown. `None` ⇒ visible (default).
+    pub sidebar_visible: Option<bool>,
 }
 
 fn settings_path(app: &AppHandle) -> Result<PathBuf, String> {

@@ -134,6 +134,15 @@ body {
   min-height: 0;
 }
 
+/* Toggled via Ctrl+\ / the ☰ button; the sidebar collapses to zero width. */
+#workspace.sidebar-hidden {
+  grid-template-columns: 0 1fr;
+}
+
+#workspace.sidebar-hidden #sidebar {
+  display: none;
+}
+
 #sidebar {
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
@@ -198,9 +207,72 @@ body {
 /* ---- Main: tab bar + editor ---- */
 #main {
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr; /* tabbar · format toolbar · search · editor */
   min-height: 0;
   min-width: 0;
+}
+
+/* ---- Find & Replace bar ---- */
+.searchbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.4rem 0.75rem;
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.searchbar[hidden] {
+  display: none;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.search-input {
+  font: inherit;
+  font-size: 0.85rem;
+  flex: 1;
+  max-width: 320px;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+}
+
+.search-count {
+  font-size: 0.78rem;
+  color: var(--muted);
+  min-width: 5rem;
+}
+
+.search-btn {
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--btn-bg);
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.search-btn:hover {
+  border-color: var(--muted);
+}
+
+/* Match highlights (decorations from the search plugin). */
+.search-hit {
+  background: rgb(255 214 0 / 35%);
+  border-radius: 2px;
+}
+
+.search-hit-active {
+  background: rgb(255 145 0 / 55%);
 }
 
 #tabbar {

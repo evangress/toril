@@ -15,6 +15,7 @@ import {
   type WorkspaceChange,
   exportHtml,
   exportRtf,
+  installCloseGuard,
   loadSettings,
   markdownToHtml,
   onMenuAction,
@@ -30,6 +31,7 @@ import {
   showAbout,
   watchFolder,
 } from "./ipc";
+import { SearchBar } from "./ui/search";
 import { Sidebar } from "./ui/sidebar";
 import { StatusBar } from "./ui/statusbar";
 import { type TabState, TabManager } from "./ui/tabs";
@@ -46,9 +48,11 @@ let tabs: TabManager;
 let sidebar: Sidebar;
 let formatToolbar: FormattingToolbar | null = null;
 let statusBar: StatusBar | null = null;
+let searchBar: SearchBar | null = null;
 let theme: ThemeController | null = null;
 
 let workspaceRoot: string | null = null;
+let sidebarVisible = true;
 let unwatch: UnlistenFn | null = null;
 let refreshTimer: ReturnType<typeof setTimeout> | null = null;
 let sessionTimer: ReturnType<typeof setTimeout> | null = null;
@@ -200,6 +204,26 @@ async function doSave(): Promise<void> {
   }
 }
 
+/** Save every dirty, file-backed tab (Untitled tabs need Save As and are skipped). */
+async function doSaveAll(): Promise<void> {
+  const active = tabs.active();
+  if (active) active.content = docToMarkdown(editor); // capture the live buffer
+  let saved = 0;
+  for (const tab of tabs.list()) {
+    if (!tab.dirty || !tab.path) continue;
+    try {
+      recordSelfWrite(tab.path);
+      await saveFile(tab.path, tab.content);
+      tabs.setDirty(tab.id, false);
+      saved++;
+    } catch (e) {
+      setStatus(`Save failed for ${tab.name}: ${String(e)}`);
+    }
+  }
+  updateTitle();
+  if (saved > 0) setStatus(`Saved ${saved} file${saved === 1 ? "" : "s"}`);
+}
+
 async function doSaveAs(): Promise<void> {
   const tab = tabs.active();
   if (!tab) return;
@@ -223,6 +247,21 @@ async function doSaveAs(): Promise<void> {
 function doNew(): void {
   openDocument(null, "Untitled", "");
   setStatus("New document");
+}
+
+// ---- Sidebar visibility ----------------------------------------------------
+
+/** Apply the sidebar visibility to the DOM (a class on #workspace drives CSS). */
+function applySidebar(): void {
+  document.querySelector("#workspace")?.classList.toggle("sidebar-hidden", !sidebarVisible);
+  const btn = document.querySelector<HTMLElement>("#btn-toggle-sidebar");
+  if (btn) btn.dataset.active = String(sidebarVisible);
+}
+
+function toggleSidebar(): void {
+  sidebarVisible = !sidebarVisible;
+  applySidebar();
+  scheduleSessionSave();
 }
 
 // ---- Export ----------------------------------------------------------------
@@ -364,6 +403,7 @@ function scheduleSessionSave(): void {
         .filter((p): p is string => p !== null),
       active_file: tabs.active()?.path ?? null,
       theme: theme?.current() ?? null,
+      sidebar_visible: sidebarVisible,
     };
     void saveSettings(settings).catch(() => {}); // best-effort
   }, 400);
@@ -387,6 +427,10 @@ async function restoreSession(): Promise<void> {
   if (theme && isTheme(settings.theme)) {
     theme.applyInitial(settings.theme);
     syncThemeSelect();
+  }
+  if (settings.sidebar_visible !== null) {
+    sidebarVisible = settings.sidebar_visible;
+    applySidebar();
   }
 
   if (settings.last_folder) {
@@ -437,6 +481,12 @@ function handleMenuAction(id: string): void {
     case "menu_save_as":
       void doSaveAs();
       break;
+    case "menu_save_all":
+      void doSaveAll();
+      break;
+    case "menu_toggle_sidebar":
+      toggleSidebar();
+      break;
     case "menu_export_html":
       void doExportHtml();
       break;
@@ -455,7 +505,11 @@ function installShortcuts(): void {
     switch (e.key.toLowerCase()) {
       case "s":
         e.preventDefault();
-        void (e.shiftKey ? doSaveAs() : doSave());
+        void (e.altKey ? doSaveAll() : e.shiftKey ? doSaveAs() : doSave());
+        break;
+      case "\\":
+        e.preventDefault();
+        toggleSidebar();
         break;
       case "o":
         e.preventDefault();
@@ -464,6 +518,10 @@ function installShortcuts(): void {
       case "n":
         e.preventDefault();
         doNew();
+        break;
+      case "f":
+        e.preventDefault();
+        searchBar?.open();
         break;
       case "e":
         e.preventDefault();
@@ -505,16 +563,22 @@ window.addEventListener("DOMContentLoaded", async () => {
   formatToolbar = new FormattingToolbar(formatBar, editor, editorRoot);
   const docStats = document.querySelector<HTMLElement>("#docstats");
   if (docStats) statusBar = new StatusBar(docStats, editor, editorRoot);
+  const searchEl = document.querySelector<HTMLElement>("#searchbar");
+  if (searchEl) searchBar = new SearchBar(searchEl, editor);
 
   document.querySelector("#btn-new")?.addEventListener("click", () => doNew());
   document.querySelector("#btn-open")?.addEventListener("click", () => void doOpenFile());
   document.querySelector("#btn-open-folder")?.addEventListener("click", () => void doOpenFolder());
   document.querySelector("#btn-save")?.addEventListener("click", () => void doSave());
   document.querySelector("#btn-save-as")?.addEventListener("click", () => void doSaveAs());
+  document.querySelector("#btn-save-all")?.addEventListener("click", () => void doSaveAll());
   document.querySelector("#btn-export")?.addEventListener("click", () => void doExportHtml());
   document.querySelector("#btn-export-rtf")?.addEventListener("click", () => void doExportRtf());
+  document.querySelector("#btn-toggle-sidebar")?.addEventListener("click", () => toggleSidebar());
   installShortcuts();
   void onMenuAction(handleMenuAction); // native menu → same actions as the buttons
+  // Guard against losing unsaved work when the window is closed (§3).
+  void installCloseGuard(() => tabs.list().filter((t) => t.dirty).length);
 
   // Restore the last session (folder + open files); fall back to a welcome tab
   // if there was nothing to restore or every remembered path is now gone.
