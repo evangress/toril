@@ -17,6 +17,7 @@ import {
   exportRtf,
   loadSettings,
   markdownToHtml,
+  onMenuAction,
   onWorkspaceChange,
   openFile,
   openFolder,
@@ -26,9 +27,11 @@ import {
   saveFile,
   saveFileAs,
   saveSettings,
+  showAbout,
   watchFolder,
 } from "./ipc";
 import { Sidebar } from "./ui/sidebar";
+import { StatusBar } from "./ui/statusbar";
 import { type TabState, TabManager } from "./ui/tabs";
 import { ThemeController, isTheme } from "./ui/theme";
 import { FormattingToolbar } from "./ui/toolbar";
@@ -42,6 +45,7 @@ let editor: Editor;
 let tabs: TabManager;
 let sidebar: Sidebar;
 let formatToolbar: FormattingToolbar | null = null;
+let statusBar: StatusBar | null = null;
 let theme: ThemeController | null = null;
 
 let workspaceRoot: string | null = null;
@@ -83,6 +87,7 @@ function loadIntoEditor(content: string): void {
 
 function onEditorChange(): void {
   if (loading) return;
+  statusBar?.refresh();
   const tab = tabs.active();
   if (tab && !tab.dirty) {
     tabs.setDirty(tab.id, true);
@@ -100,6 +105,7 @@ function onActivate(tab: TabState): void {
   loadIntoEditor(tab.content);
   updateTitle();
   formatToolbar?.refresh();
+  statusBar?.refresh();
   scheduleSessionSave();
 }
 
@@ -413,6 +419,36 @@ function syncThemeSelect(): void {
   if (select && theme) select.value = theme.current();
 }
 
+/** Route a native menu click (`menu_*` id) to the matching action. */
+function handleMenuAction(id: string): void {
+  switch (id) {
+    case "menu_new":
+      doNew();
+      break;
+    case "menu_open":
+      void doOpenFile();
+      break;
+    case "menu_open_folder":
+      void doOpenFolder();
+      break;
+    case "menu_save":
+      void doSave();
+      break;
+    case "menu_save_as":
+      void doSaveAs();
+      break;
+    case "menu_export_html":
+      void doExportHtml();
+      break;
+    case "menu_export_rtf":
+      void doExportRtf();
+      break;
+    case "menu_about":
+      void showAbout();
+      break;
+  }
+}
+
 function installShortcuts(): void {
   window.addEventListener("keydown", (e) => {
     if (!(e.ctrlKey || e.metaKey)) return;
@@ -467,6 +503,8 @@ window.addEventListener("DOMContentLoaded", async () => {
   });
   loading = false;
   formatToolbar = new FormattingToolbar(formatBar, editor, editorRoot);
+  const docStats = document.querySelector<HTMLElement>("#docstats");
+  if (docStats) statusBar = new StatusBar(docStats, editor, editorRoot);
 
   document.querySelector("#btn-new")?.addEventListener("click", () => doNew());
   document.querySelector("#btn-open")?.addEventListener("click", () => void doOpenFile());
@@ -476,6 +514,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelector("#btn-export")?.addEventListener("click", () => void doExportHtml());
   document.querySelector("#btn-export-rtf")?.addEventListener("click", () => void doExportRtf());
   installShortcuts();
+  void onMenuAction(handleMenuAction); // native menu → same actions as the buttons
 
   // Restore the last session (folder + open files); fall back to a welcome tab
   // if there was nothing to restore or every remembered path is now gone.

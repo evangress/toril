@@ -18,7 +18,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 0. Current State
 
-**Phases 0–2 (§8) are implemented; both Phase 1 gates pass.** Tauri 2 + Vite + TypeScript, §4 split (frontend at repo root, Rust in `src-tauri/`).
+**Phases 0–3 are implemented and Phase 4 is in progress; all gates pass.** Tauri 2 + Vite + TypeScript, §4 split (frontend at repo root, Rust in `src-tauri/`). Phase 3 is complete except deferred PDF (§7); Phase 4 has the status bar + native menu done, packaging shipping via CI.
 
 What exists today:
 - **Milkdown WYSIWYG** editor (`src/editor/milkdown.ts`): CommonMark + GFM (tables, task lists, strikethrough) + change listener. Mounted by `src/main.ts`.
@@ -31,16 +31,18 @@ What exists today:
 - **HTML export** (Phase 3, §7): `markdown_to_html` renders via the testable **`mdhtml`** crate (comrak, GFM + front matter, raw-HTML pass-through); `main.ts` sanitizes that output through `sanitize.ts` (§3.3), `src/export/html.ts` wraps it in a theme-aware standalone document, and `export_html` writes it atomically through a native save dialog. Buttons: `#btn-export` + Ctrl+E.
 - **RTF export** (Phase 3, §7): `export_rtf` renders via the testable **`mdrtf`** crate (comrak AST → RTF control words) and writes atomically — all in Rust, no webview/sanitize step (RTF is inert). Button: `#btn-export-rtf`. Opens in Word/LibreOffice/WordPad/TextEdit. *(Shipped instead of PDF — §7.)*
 - **Clipboard image paste** (Phase 3, §6): a `$prose` `handlePaste` plugin in `milkdown.ts` detects a pasted image, `save_clipboard_image` persists it to `assets/` beside the doc (via the testable **`imgasset`** crate — magic-byte format sniff + content-hash filename for dedup + atomic write), and it's inserted as a canonical image node (`insertImageCommand`, not raw text). Requires a saved document (the `assets/…` link needs a location); pasting into an Untitled doc shows a "save first" hint.
+- **Status bar** (Phase 4, `src/ui/statusbar.ts`): live word/character count + block-relative cursor `Ln/Col` in the footer (`#docstats`), updated on edits and selection moves; shows "N of M words" with a selection. Counts document *text*, not markdown source.
+- **Native app menu** (Phase 4, `src-tauri/src/menu.rs`): File / Edit (predefined) / Help (About). Custom items emit a `menu` event that `main.ts` routes to the same handlers as the buttons. No item accelerators (the keydown handler is the single shortcut path — no double-fire); shortcuts shown in labels.
 - **Formatting toolbar** (Phase 3, `src/ui/toolbar.ts`): the edit-pane toolbar above the editor (mounted in `app.html` `#format-toolbar`, distinct from the file-actions `#toolbar`). Every button drives a Milkdown command via `callCommand` (or, for task lists / clear-formatting / emoji, a plain ProseMirror transaction) — it **never** inserts raw markdown text (§3.2). Covers: heading H1–H6 + paragraph (select), bold, italic, strikethrough, inline code, bullet/ordered/task lists, blockquote, code block, table, HR, link, image, an emoji picker (inserts the unicode char, the canonical form), and clear-formatting. Buttons reflect active state (e.g. bold lit when the selection is strong) via `activeState()`. The command layer is exported separately from the DOM so the gate can test it headlessly. Front matter is **deferred** (not lossless yet — §0); the cheat-sheet extras (footnote, heading id, definition list, highlight, sub/superscript, math) stay deferred per §8; underline is omitted by design (no markdown form).
-- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Toolbar round-trip → `tests/toolbar.test.ts` (19, §3.2: each command matches typing the equivalent syntax + asserts no raw-markdown-text insertion). Export render configs → `cargo test -p mdhtml` (5) + `cargo test -p mdrtf` (12). Export pipeline → `tests/export.test.ts` (6: standalone builder + the §3.3 sanitization chokepoint). Themes → `tests/theme.test.ts` (6). Clipboard-image asset logic → `cargo test -p imgasset` (4). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 62; logic crates: 29 (`fsatomic` 5, `vaultscan` 3, `mdhtml` 5, `mdrtf` 12, `imgasset` 4).
+- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Toolbar round-trip → `tests/toolbar.test.ts` (19, §3.2: each command matches typing the equivalent syntax + asserts no raw-markdown-text insertion). Export render configs → `cargo test -p mdhtml` (5) + `cargo test -p mdrtf` (12). Export pipeline → `tests/export.test.ts` (6: standalone builder + the §3.3 sanitization chokepoint). Themes → `tests/theme.test.ts` (6). Clipboard-image asset logic → `cargo test -p imgasset` (4). Status-bar counters → `tests/statusbar.test.ts` (7). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 69; logic crates: 29 (`fsatomic` 5, `vaultscan` 3, `mdhtml` 5, `mdrtf` 12, `imgasset` 4).
 
 **Not yet done / deferred:**
 - **Round-trip gate covers CommonMark + GFM + emoji.** Math is **deferred** (its only plugin is deprecated — §8). YAML front matter still needs handling and is **not** yet guaranteed lossless — add its fixtures to `roundtrip.test.ts` when that lands.
 - **Formatting is normalized to Milkdown's canonical form** on first save (tight lists → loose, `---` → `***`). Reformats whitespace but never drops content and is idempotent thereafter (documented WYSIWYG trade-off; see the normalization test). Relevant to Obsidian-vault diffs (§1).
-- **All GUI flows are unverified** (dialogs, Ctrl+S, tabs, sidebar, watcher reload, toolbar buttons + emoji picker + active-state highlighting, theme switching, export save dialog) — they need the webview; see the build-environment note. Verify on a machine with platform webview deps. Logic layers (toolbar commands, theme controller, export builder/sanitize, comrak render) are gated headlessly, but DOM/dialog wiring is not.
+- **All GUI flows are unverified** (dialogs, Ctrl+S, tabs, sidebar, watcher reload, toolbar buttons + emoji picker + active-state highlighting, theme switching, export save dialog, clipboard image paste, the native menu + About dialog, the status bar) — they need the webview; see the build-environment note. Verify on a machine with platform webview deps. Logic layers (toolbar commands, theme controller, export builder/sanitize, comrak render, imgasset, status-bar counters) are gated headlessly, but DOM/menu/dialog wiring is not — and the native menu (`menu.rs`) can't even be compiled here (app crate needs the webview to link).
 - Tab switching does **not** preserve per-tab undo history (single shared editor; content is swapped). Acceptable for now; revisit if it bites.
 - **Source / Typewriter / Focus edit modes were dropped** as low-value (§8) — not deferred-pending, just not planned unless asked for.
-- **PDF export** remains deferred (§7); the remaining roadmap is Phase 4 polish (status-bar word count, app menu, shortcut reference). YAML front matter still isn't guaranteed lossless in the round-trip gate (§8).
+- **PDF export** remains deferred (§7). Phase 4's status bar + native menu are done; remaining is optional code-signing and on-device verification. YAML front matter still isn't guaranteed lossless in the round-trip gate (§8).
 
 ### Commands
 ```bash
@@ -58,7 +60,7 @@ cd src-tauri && cargo fmt --all && cargo clippy   # clean before commit (§10)
 
 **Build environment note.** The Rust **app** crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, the frontend (`pnpm build`/`test`/`typecheck`), the `fsatomic` tests, and `cargo generate-lockfile` all work, but a full `cargo build`/`tauri dev` will not link. The window must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`). `fsatomic` is split out partly so the §3.1 gate stays runnable everywhere.
 
-**Next: Phase 4 (Polish & ship)** — Phase 3 is effectively complete: GFM, emoji, formatting toolbar, themes + persisted prefs, HTML export, RTF export, and clipboard image paste (all gated). Math **deferred** (deprecated plugin — §8); edit modes **dropped** as low-value (§8); PDF **deferred** as not worth the per-platform FFI now (§7). Remaining: Phase 4 polish — status-bar word count, app menu, shortcut reference.
+**Next: finish Phase 4** — done: Phase 3 (GFM, emoji, toolbar, themes, HTML + RTF export, clipboard image paste) plus Phase 4's status bar + native menu; packaging ships via CI on each `v*` tag. Math **deferred** (deprecated plugin — §8); edit modes **dropped** (§8); PDF **deferred** (§7); shortcut-reference panel **deferred** (the menu lists shortcuts). Remaining polish is mostly shippable-quality work: optional code-signing (removes the SmartScreen warning — see the code-signing memory), and on-device verification of the GUI/Rust flows that can't be tested here.
 
 ---
 
@@ -138,7 +140,8 @@ toril/
 │   │   ├── sidebar.ts         # file tree
 │   │   ├── tabs.ts            # open-document tabs
 │   │   ├── toolbar.ts         # formatting toolbar (commands + active state, §6)
-│   │   └── theme.ts           # theme preference controller (System/Light/Dark, §6)
+│   │   ├── theme.ts           # theme preference controller (System/Light/Dark, §6)
+│   │   └── statusbar.ts       # word/char count + cursor position (§8 Phase 4)
 │   ├── export/
 │   │   └── html.ts            # standalone HTML-document builder (§7)
 │   ├── styles.css             # app chrome + theme CSS variables (per data-theme)
@@ -156,7 +159,8 @@ toril/
     │   └── imgasset/          # save pasted clipboard images beside the doc (§6)
     └── src/
         ├── main.rs            # bin entry → lib::run()
-        ├── lib.rs             # Tauri builder + command registration
+        ├── lib.rs             # Tauri builder + menu + command registration
+        ├── menu.rs            # native app menu (File/Edit/Help) → `menu` events (§8)
         ├── commands/
         │   ├── files.rs       # open / save (ATOMIC) / save_as
         │   ├── workspace.rs   # open folder, list tree, watch (notify crate)
@@ -194,6 +198,11 @@ Authoritative list. Update it here whenever a command changes. **All disk access
 > **frontend** runs the result through `sanitize.ts` and builds the standalone
 > document, then `export_html` writes that finished HTML atomically. comrak never
 > writes files; sanitize never moves to Rust.
+>
+> **Events (Rust → frontend):** `workspace:change` (file watcher, §5) and `menu`
+> (native menu item id `menu_*`, §8 — the frontend maps it to the same handlers
+> as the toolbar buttons). Subscribe via `onWorkspaceChange` / `onMenuAction` in
+> `ipc.ts`.
 
 ---
 
@@ -264,9 +273,11 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - ✅ **RTF export** — *done* (`export_rtf`, `crates/mdrtf`; §7). All-Rust (comrak AST → RTF control words → atomic write); no webview/sanitize step since RTF is inert. Gate: `crates/mdrtf` (12). Opens in Word/LibreOffice/WordPad/TextEdit. *(Added in place of PDF, which was judged not worth the per-platform FFI at this maturity — §7.)*
 - **PDF export — deferred** (§7): the HTML export already covers a manual browser "Save as PDF"; programmatic PDF needs unverifiable per-platform webview FFI. With clipboard image paste now done, Phase 3 is effectively complete except deferred PDF; **next is Phase 4 polish** (status-bar word count, app menu).
 
-**Phase 4 — Polish & ship**
-- App menu, shortcut reference, word count in status bar.
-- `pnpm tauri build` → `.exe` + NSIS installer.
+**Phase 4 — Polish & ship** *(in progress)*
+- ✅ **Word count in status bar** — *done* (`src/ui/statusbar.ts`): live word/char count + block-relative cursor `Ln/Col`, plus "N of M words" on a selection. Counts the document *text*, not markdown source. Gate: `tests/statusbar.test.ts` (7, pure helpers).
+- ✅ **Native app menu** — *done* (`src-tauri/src/menu.rs`): File (New/Open/Open Folder/Save/Save As/Export HTML/Export RTF/Quit), Edit (predefined undo/cut/copy/paste/select-all), Help (About). Custom items emit a `menu` event the frontend maps to the toolbar handlers. **No accelerators on items** — the frontend keydown handler stays the single shortcut path so clicks and shortcuts can't double-fire; the shortcut shows in the label. *(App-crate Rust — not compile-verified here; needs the webview.)*
+- Shortcut reference — *deferred* (not requested; the menu now lists the shortcuts).
+- ✅ **Packaging** — `pnpm tauri build` → `.exe` + NSIS/MSI; cross-platform installers are produced by the CI release workflow on every `v*` tag (§9). Currently unsigned (SmartScreen warning expected).
 
 ---
 
