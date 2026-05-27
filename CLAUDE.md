@@ -29,8 +29,9 @@ What exists today:
 - **Session memory** (`src-tauri/src/settings.rs`): `load_settings` / `save_settings` (§5) persist a versioned `session.json` to the app config dir (outside the vault) via `fsatomic`. On launch `main.ts` restores the last workspace folder + open file tabs + active tab + the theme preference; only *paths* are stored for files (re-read from disk, §3.2), and missing folders/files are skipped defensively. Best-effort — a failed save never interrupts editing.
 - **Themes** (Phase 3, `src/ui/theme.ts`): a System/Light/Dark preference resolved to a concrete palette and written to `html[data-theme]`; all colors are CSS variables in `styles.css`, so switching is one attribute write. The editor's nord prose is overridden to follow the chosen theme (decoupled from the OS scheme). Header `#theme-select`; preference persisted via `Settings.theme`.
 - **HTML export** (Phase 3, §7): `markdown_to_html` renders via the testable **`mdhtml`** crate (comrak, GFM + front matter, raw-HTML pass-through); `main.ts` sanitizes that output through `sanitize.ts` (§3.3), `src/export/html.ts` wraps it in a theme-aware standalone document, and `export_html` writes it atomically through a native save dialog. Buttons: `#btn-export` + Ctrl+E.
+- **RTF export** (Phase 3, §7): `export_rtf` renders via the testable **`mdrtf`** crate (comrak AST → RTF control words) and writes atomically — all in Rust, no webview/sanitize step (RTF is inert). Button: `#btn-export-rtf`. Opens in Word/LibreOffice/WordPad/TextEdit. *(Shipped instead of PDF — §7.)*
 - **Formatting toolbar** (Phase 3, `src/ui/toolbar.ts`): the edit-pane toolbar above the editor (mounted in `app.html` `#format-toolbar`, distinct from the file-actions `#toolbar`). Every button drives a Milkdown command via `callCommand` (or, for task lists / clear-formatting / emoji, a plain ProseMirror transaction) — it **never** inserts raw markdown text (§3.2). Covers: heading H1–H6 + paragraph (select), bold, italic, strikethrough, inline code, bullet/ordered/task lists, blockquote, code block, table, HR, link, image, an emoji picker (inserts the unicode char, the canonical form), and clear-formatting. Buttons reflect active state (e.g. bold lit when the selection is strong) via `activeState()`. The command layer is exported separately from the DOM so the gate can test it headlessly. Front matter is **deferred** (not lossless yet — §0); the cheat-sheet extras (footnote, heading id, definition list, highlight, sub/superscript, math) stay deferred per §8; underline is omitted by design (no markdown form).
-- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Toolbar round-trip → `tests/toolbar.test.ts` (19, §3.2: each command matches typing the equivalent syntax + asserts no raw-markdown-text insertion). Export render config → `cargo test -p mdhtml` (5). Export pipeline → `tests/export.test.ts` (6: standalone builder + the §3.3 sanitization chokepoint). Themes → `tests/theme.test.ts` (6). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 62; logic crates: 13 (`fsatomic` 5, `vaultscan` 3, `mdhtml` 5).
+- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Toolbar round-trip → `tests/toolbar.test.ts` (19, §3.2: each command matches typing the equivalent syntax + asserts no raw-markdown-text insertion). Export render configs → `cargo test -p mdhtml` (5) + `cargo test -p mdrtf` (12). Export pipeline → `tests/export.test.ts` (6: standalone builder + the §3.3 sanitization chokepoint). Themes → `tests/theme.test.ts` (6). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 62; logic crates: 25 (`fsatomic` 5, `vaultscan` 3, `mdhtml` 5, `mdrtf` 12).
 
 **Not yet done / deferred:**
 - **Round-trip gate covers CommonMark + GFM + emoji.** Math is **deferred** (its only plugin is deprecated — §8). YAML front matter still needs handling and is **not** yet guaranteed lossless — add its fixtures to `roundtrip.test.ts` when that lands.
@@ -49,14 +50,14 @@ pnpm tauri build      # production .exe + installer (Windows; see §9)
 pnpm test             # vitest — round-trip + toolbar + theme + export + tabs + security (jsdom)
 pnpm typecheck        # tsc --noEmit (TS strict)
 pnpm build            # tsc + vite build (frontend only)
-cd src-tauri && cargo test -p fsatomic -p vaultscan -p mdhtml   # logic crates (no webview needed)
+cd src-tauri && cargo test -p fsatomic -p vaultscan -p mdhtml -p mdrtf   # logic crates (no webview needed)
 # (plain `cargo test` also builds the app crate → needs the webview toolchain)
 cd src-tauri && cargo fmt --all && cargo clippy   # clean before commit (§10)
 ```
 
 **Build environment note.** The Rust **app** crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, the frontend (`pnpm build`/`test`/`typecheck`), the `fsatomic` tests, and `cargo generate-lockfile` all work, but a full `cargo build`/`tauri dev` will not link. The window must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`). `fsatomic` is split out partly so the §3.1 gate stays runnable everywhere.
 
-**Next: Phase 3 tail** — done so far: GFM, emoji, formatting toolbar, themes + persisted prefs, and HTML export (all gated). Math **deferred** (deprecated plugin — §8); edit modes **dropped** as low-value (§8). Remaining: clipboard image paste, then PDF export (§7).
+**Next: Phase 3 tail** — done so far: GFM, emoji, formatting toolbar, themes + persisted prefs, HTML export, and RTF export (all gated). Math **deferred** (deprecated plugin — §8); edit modes **dropped** as low-value (§8); PDF **deferred** as not worth the per-platform FFI now (§7). Remaining: clipboard image paste, then Phase 4 polish (status-bar word count, app menu).
 
 ---
 
@@ -149,14 +150,15 @@ toril/
     ├── crates/                # dependency-light, webview-free, unit-tested cores
     │   ├── fsatomic/          # atomic writes (§3.1)
     │   ├── vaultscan/         # markdown-tree scanner (§5 open_folder)
-    │   └── mdhtml/            # comrak markdown→HTML for export (§7)
+    │   ├── mdhtml/            # comrak markdown→HTML for export (§7)
+    │   └── mdrtf/             # comrak markdown→RTF for export (§7)
     └── src/
         ├── main.rs            # bin entry → lib::run()
         ├── lib.rs             # Tauri builder + command registration
         ├── commands/
         │   ├── files.rs       # open / save (ATOMIC) / save_as
         │   ├── workspace.rs   # open folder, list tree, watch (notify crate)
-        │   ├── export.rs      # markdown_to_html (mdhtml) + export_html (atomic write)
+        │   ├── export.rs      # markdown_to_html + export_html (HTML); export_rtf (mdrtf, all-Rust)
         │   └── images.rs      # (future) persist pasted clipboard image into assets
         └── settings.rs        # persisted prefs (theme, last folder, open files)
 ```
@@ -180,7 +182,8 @@ Authoritative list. Update it here whenever a command changes. **All disk access
 | `watch_folder` | `path` | event stream | external-change events (`notify` crate) |
 | `markdown_to_html` | `content` | `html` | comrak (`mdhtml` crate) → **untrusted** HTML body; caller sanitizes (§3.3, §7) |
 | `export_html` | `html, defaultName` | `path?` | native dialog + **atomic** write of an already-sanitized standalone doc; `null` if cancelled |
-| `export_pdf` | `content, theme` | `path` | *(deferred)* webview print-to-PDF (§7) |
+| `export_rtf` | `content, defaultName` | `path?` | renders (comrak via `mdrtf`) **and** writes, all in Rust; inert output, no sanitize step (§7); `null` if cancelled |
+| `export_pdf` | `content, theme` | `path` | *(deferred — see §7)* |
 | `save_clipboard_image` | `bytes, doc_path` | `relative_path` | *(deferred)* writes to `./assets/`, returns MD-relative path |
 | `load_settings` / `save_settings` | — / `Settings` | `Settings` / `()` | JSON in app config dir; `Settings` includes `theme` |
 
@@ -217,10 +220,9 @@ Authoritative list. Update it here whenever a command changes. **All disk access
 3. **Write (Rust):** `export_html` opens the native save dialog and **atomically** writes the finished HTML (§3.1).
 Math (KaTeX) is omitted — deferred (§8); add the KaTeX stylesheet to the template when math lands.
 
-**PDF — deferred** (in order of preference when built):
-1. **Webview print-to-PDF** — render the export HTML in a hidden Tauri webview, print to PDF. No extra binary, best fidelity. *Preferred.*
-2. `headless_chrome` crate — heavier, needs Chrome present.
-3. Pure-Rust PDF — avoid; weak CSS/KaTeX support.
+**RTF — ✅ implemented.** Single-step, all in Rust: `export_rtf` calls the `mdrtf` crate, which walks comrak's AST and emits RTF control words directly, then writes it atomically via the save dialog. **No sanitization step** — RTF is inert (opened by a word processor, not the webview), `mdrtf` RTF-escapes all text and emits any source HTML as literal characters, and export is one-way so §3.2 doesn't apply. Covers headings, bold/italic/strike/inline code, code blocks, links (HYPERLINK fields), bullet/ordered/task lists, blockquotes, thematic breaks, tables, and front-matter exclusion; non-ASCII (incl. emoji) → `\uN?` escapes. Images become a labelled placeholder (no binary embedding). Opens in Word/LibreOffice/WordPad/TextEdit.
+
+**PDF — deferred (decided not worth it at current maturity).** The HTML export already gives a faithful manual PDF path (open the `.html` → browser Print → "Save as PDF"). Programmatic PDF in Tauri 2 has **no core API**; it requires per-platform `with_webview` FFI — Windows `ICoreWebView2_7::PrintToPdf` (via `webview2-com`, cleanest), macOS `WKWebView.createPDF`, Linux `WebKitPrintOperation` — which is unsafe, unverifiable without each platform's webview, and disproportionate effort for an alpha. Revisit on a Windows box if demand appears; `headless_chrome` (needs a Chrome binary) and pure-Rust HTML→PDF (weak CSS fidelity) remain rejected under §2/§10.
 
 ---
 
@@ -244,7 +246,7 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - ✅ `watch_folder` (`notify` crate) → `workspace:change` events; `main.ts` debounces a sidebar refresh and prompts to reload the active file on external change (self-writes suppressed to avoid prompting on our own saves). Obsidian-vault aware: hidden/`.obsidian` entries are skipped.
 - ⏳ Sidebar clicks, tab switching, and watcher reload prompts are unverified in a live window (no webview here).
 
-**Phase 3 — MarkText parity** *(in progress: GFM, emoji, formatting toolbar, themes, and HTML export are done + gated; edit modes dropped as low-value)*
+**Phase 3 — MarkText parity** *(in progress: GFM, emoji, formatting toolbar, themes, and HTML + RTF export are done + gated; edit modes dropped as low-value; PDF deferred)*
 - ✅ GFM (done) + emoji plugin (`@milkdown/plugin-emoji`, maintained).
 - **Math (KaTeX) — DEFERRED.** The only Milkdown math plugin (`@milkdown/plugin-math`) is npm-**deprecated** ("no longer supported"), so it is omitted per the healthy-dependency rule (§2/§10). Revisit if a maintained math plugin appears, or if we hand-roll one on a maintained KaTeX + `remark-math` base. Until then the round-trip gate stays CommonMark + GFM + emoji.
 - ~~Source / Typewriter / Focus modes.~~ **DROPPED as low-value** (user decision, 2026-05-26). Not built; revisit only on explicit demand. Source mode (CodeMirror 6, §2) would be the substantial part if it returns.
@@ -256,7 +258,9 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
   - **Deferred — not exposed until a healthy plugin + lossless round-trip exist (§2/§10), same policy as math:** cheat-sheet *footnote, heading ID, definition list, highlight (`==`), subscript, superscript*, and *math (KaTeX)* (already deferred). A button is added **only** once that component round-trips losslessly; never ship a control for syntax the editor can't represent.
   - **Deliberately omitted:** *underline* — it has no markdown form (MarkText emits raw `<u>` HTML), so a button would inject non-portable HTML and break the plain-`.md` / Obsidian goal (§1).
 - ✅ **GATE:** toolbar round-trip — *done* (`tests/toolbar.test.ts`, 19). Applying a format via a command yields the same canonical markdown as typing the equivalent syntax (compared against a `serializer.ts` round-trip of the hand-typed form), and the suite asserts no raw-markdown-text insertion (the document's text content is unchanged after an inline format — the syntax lives as marks/nodes, never literal `**`/`> ` characters). Kept in its own file rather than `roundtrip.test.ts` to isolate the command-layer fixtures (§3.2).
-- ✅ **HTML export** — *done* (`markdown_to_html` + `export_html`, `crates/mdhtml`, `src/export/html.ts`; §7). Sanitized via `sanitize.ts`, theme-aware standalone document, atomic write. Gate: `crates/mdhtml` (5, render config) + `tests/export.test.ts` (6, builder + the §3.3 chokepoint). **PDF export still deferred** (§7).
+- ✅ **HTML export** — *done* (`markdown_to_html` + `export_html`, `crates/mdhtml`, `src/export/html.ts`; §7). Sanitized via `sanitize.ts`, theme-aware standalone document, atomic write. Gate: `crates/mdhtml` (5, render config) + `tests/export.test.ts` (6, builder + the §3.3 chokepoint).
+- ✅ **RTF export** — *done* (`export_rtf`, `crates/mdrtf`; §7). All-Rust (comrak AST → RTF control words → atomic write); no webview/sanitize step since RTF is inert. Gate: `crates/mdrtf` (12). Opens in Word/LibreOffice/WordPad/TextEdit. *(Added in place of PDF, which was judged not worth the per-platform FFI at this maturity — §7.)*
+- **PDF export — deferred** (§7): the HTML export already covers a manual browser "Save as PDF"; programmatic PDF needs unverifiable per-platform webview FFI. Clipboard image paste also remains.
 
 **Phase 4 — Polish & ship**
 - App menu, shortcut reference, word count in status bar.

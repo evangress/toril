@@ -13,6 +13,37 @@ GitHub Release notes plus the commits that shipped in it.
 
 _Nothing yet._
 
+## [v0.1.0-alpha.6] — 2026-05-27
+
+**Release notes — new in this build:**
+
+- **Export to RTF** — export the current note to a Rich Text Format document
+  (the *Export RTF* button) that opens in Word, LibreOffice, WordPad, or
+  TextEdit. Headings, bold/italic/strikethrough/inline code, code blocks, links,
+  bullet/ordered/task lists, blockquotes, tables, and horizontal rules all carry
+  over.
+
+_Note: programmatic PDF export was evaluated and deferred for now — the HTML
+export already gives a faithful PDF via your browser's “Save as PDF”, and a
+native PDF path needs per-platform webview work not worth it at this stage.
+Still an early alpha; back up your notes. On Windows, SmartScreen warns on first
+run because the build is unsigned — that is expected._
+
+### Added
+- RTF export: `mdrtf` crate (comrak AST → RTF) + the `export_rtf` command and
+  *Export RTF* button. All-Rust, no sanitization step (RTF is inert).
+
+### Changed
+- PDF export deferred (see §7) in favour of RTF; the HTML export covers manual
+  "Save as PDF" via a browser.
+
+### Docs / Process
+- Added `CHANGELOG.md` and a rule to record release notes before tagging a release.
+
+### Commits
+- `8b82db0` feat(export): add RTF export via testable mdrtf crate
+- `85cdd72` docs: add CHANGELOG.md and require release notes before tagging
+
 ## [v0.1.0-alpha.5] — 2026-05-26
 
 **Release notes — new in this build:**
@@ -141,7 +172,8 @@ watcher, and the cross-platform release pipeline.
 - `0d5b7f5` initial commit
 - `24d2c42` Initial commit
 
-[Unreleased]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.5...HEAD
+[Unreleased]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.6...HEAD
+[v0.1.0-alpha.6]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [v0.1.0-alpha.5]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [v0.1.0-alpha.4]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [v0.1.0-alpha.3]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
