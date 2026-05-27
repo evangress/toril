@@ -1,0 +1,10 @@
+[package]
+name = "imgasset"
+version = "0.1.0"
+edition = "2024"
+description = "Save pasted clipboard images beside a Toril document (CLAUDE.md §6). No Tauri dependency so the path/format/dedup logic is unit-testable without the webview."
+
+# Writes go through fsatomic so a pasted image lands atomically (§3.1). No image
+# decoding — we only sniff a magic-byte prefix to pick the file extension.
+[dependencies]
+fsatomic = { path = "../fsatomic" }

@@ -17,6 +17,7 @@ pub fn run() {
             commands::export::markdown_to_html,
             commands::export::export_html,
             commands::export::export_rtf,
+            commands::images::save_clipboard_image,
             settings::load_settings,
             settings::save_settings,
         ])

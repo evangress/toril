@@ -129,3 +129,12 @@ export function exportHtml(html: string, defaultName: string): Promise<string | 
 export function exportRtf(content: string, defaultName: string): Promise<string | null> {
   return invoke<string | null>("export_rtf", { content, defaultName });
 }
+
+/**
+ * Persist a pasted image beside `docPath` (in `assets/`) and resolve to the
+ * Markdown-relative path to link with `![](…)` (§6). `bytes` is the raw image
+ * data as a byte array. All disk access stays in Rust.
+ */
+export function saveClipboardImage(bytes: number[], docPath: string): Promise<string> {
+  return invoke<string>("save_clipboard_image", { bytes, docPath });
+}
