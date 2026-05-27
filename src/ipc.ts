@@ -1,9 +1,10 @@
 // Thin, typed wrappers around Tauri's `invoke()` and dialogs. Per CLAUDE.md
 // §5/§10 the frontend never touches the filesystem directly — every backend
 // command and its argument shape is declared here, in one place.
+import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { message, open as openDialog } from "@tauri-apps/plugin-dialog";
 
 export type { UnlistenFn } from "@tauri-apps/api/event";
 
@@ -81,6 +82,26 @@ export function onWorkspaceChange(
   handler: (change: WorkspaceChange) => void,
 ): Promise<UnlistenFn> {
   return listen<WorkspaceChange>("workspace:change", (event) => handler(event.payload));
+}
+
+/** Subscribe to native menu clicks; the payload is the item id (`menu_*`, §8). */
+export function onMenuAction(handler: (id: string) => void): Promise<UnlistenFn> {
+  return listen<string>("menu", (event) => handler(event.payload));
+}
+
+/** Show the native "About Toril" dialog (Help menu). */
+export async function showAbout(): Promise<void> {
+  let version = "";
+  try {
+    version = await getVersion();
+  } catch {
+    // version unavailable (e.g. dev) — show without it
+  }
+  const heading = version ? `Toril v${version}` : "Toril";
+  await message(`${heading}\nA MarkText-style WYSIWYG markdown editor.`, {
+    title: "About Toril",
+    kind: "info",
+  });
 }
 
 /** Persisted session + preferences (mirrors Rust `settings::Settings`, §5). */

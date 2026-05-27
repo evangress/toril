@@ -377,9 +377,18 @@ body {
 
 /* ---- Status bar ---- */
 #statusbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 0.25rem 0.75rem;
   font-size: 0.78rem;
   color: var(--muted);
   border-top: 1px solid var(--border);
   min-height: 1.6rem;
+}
+
+#docstats {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
