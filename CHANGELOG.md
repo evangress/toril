@@ -13,6 +13,34 @@ GitHub Release notes plus the commits that shipped in it.
 
 _Nothing yet._
 
+## [v0.1.0-alpha.8] — 2026-05-27
+
+**Release notes — quality-of-life improvements:**
+
+- **Find & Replace** — press `Ctrl+F` to search the document, jump between
+  matches, and replace one or all. (`Esc` closes; matching is case-insensitive.)
+- **Save All** (`Ctrl+Alt+S`) — save every open file at once.
+- **Toggle the sidebar** (`Ctrl+\` or the ☰ button) — collapse the file pane for
+  distraction-free writing; the choice is remembered.
+- **Won't lose your work** — closing the window with unsaved changes now asks
+  before discarding them.
+- **Reading time** — the status bar now shows an estimated reading time alongside
+  the word/character count.
+
+_Still an early alpha — back up your notes. On Windows, SmartScreen warns on
+first run because the build is unsigned; that is expected._
+
+### Added
+- Find & Replace (`src/ui/search.ts`): a ProseMirror decoration plugin +
+  search bar, hand-rolled to avoid a second ProseMirror copy. Gate:
+  `tests/search.test.ts`.
+- Save All; toggle sidebar (persisted via `Settings.sidebar_visible`); reading
+  time in the status bar; an unsaved-changes guard on window close.
+- Menu: File → Save All and a View → Toggle Sidebar item.
+
+### Commits
+- `e775e68` feat(ui): QoL batch — find/replace, save-all, sidebar toggle, close guard, reading time
+
 ## [v0.1.0-alpha.7] — 2026-05-27
 
 **Release notes — new in this build:**
@@ -200,7 +228,8 @@ watcher, and the cross-platform release pipeline.
 - `0d5b7f5` initial commit
 - `24d2c42` Initial commit
 
-[Unreleased]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.7...HEAD
+[Unreleased]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.8...HEAD
+[v0.1.0-alpha.8]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.7...v0.1.0-alpha.8
 [v0.1.0-alpha.7]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.6...v0.1.0-alpha.7
 [v0.1.0-alpha.6]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [v0.1.0-alpha.5]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
