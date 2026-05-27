@@ -30,8 +30,9 @@ What exists today:
 - **Themes** (Phase 3, `src/ui/theme.ts`): a System/Light/Dark preference resolved to a concrete palette and written to `html[data-theme]`; all colors are CSS variables in `styles.css`, so switching is one attribute write. The editor's nord prose is overridden to follow the chosen theme (decoupled from the OS scheme). Header `#theme-select`; preference persisted via `Settings.theme`.
 - **HTML export** (Phase 3, §7): `markdown_to_html` renders via the testable **`mdhtml`** crate (comrak, GFM + front matter, raw-HTML pass-through); `main.ts` sanitizes that output through `sanitize.ts` (§3.3), `src/export/html.ts` wraps it in a theme-aware standalone document, and `export_html` writes it atomically through a native save dialog. Buttons: `#btn-export` + Ctrl+E.
 - **RTF export** (Phase 3, §7): `export_rtf` renders via the testable **`mdrtf`** crate (comrak AST → RTF control words) and writes atomically — all in Rust, no webview/sanitize step (RTF is inert). Button: `#btn-export-rtf`. Opens in Word/LibreOffice/WordPad/TextEdit. *(Shipped instead of PDF — §7.)*
+- **Clipboard image paste** (Phase 3, §6): a `$prose` `handlePaste` plugin in `milkdown.ts` detects a pasted image, `save_clipboard_image` persists it to `assets/` beside the doc (via the testable **`imgasset`** crate — magic-byte format sniff + content-hash filename for dedup + atomic write), and it's inserted as a canonical image node (`insertImageCommand`, not raw text). Requires a saved document (the `assets/…` link needs a location); pasting into an Untitled doc shows a "save first" hint.
 - **Formatting toolbar** (Phase 3, `src/ui/toolbar.ts`): the edit-pane toolbar above the editor (mounted in `app.html` `#format-toolbar`, distinct from the file-actions `#toolbar`). Every button drives a Milkdown command via `callCommand` (or, for task lists / clear-formatting / emoji, a plain ProseMirror transaction) — it **never** inserts raw markdown text (§3.2). Covers: heading H1–H6 + paragraph (select), bold, italic, strikethrough, inline code, bullet/ordered/task lists, blockquote, code block, table, HR, link, image, an emoji picker (inserts the unicode char, the canonical form), and clear-formatting. Buttons reflect active state (e.g. bold lit when the selection is strong) via `activeState()`. The command layer is exported separately from the DOM so the gate can test it headlessly. Front matter is **deferred** (not lossless yet — §0); the cheat-sheet extras (footnote, heading id, definition list, highlight, sub/superscript, math) stay deferred per §8; underline is omitted by design (no markdown form).
-- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Toolbar round-trip → `tests/toolbar.test.ts` (19, §3.2: each command matches typing the equivalent syntax + asserts no raw-markdown-text insertion). Export render configs → `cargo test -p mdhtml` (5) + `cargo test -p mdrtf` (12). Export pipeline → `tests/export.test.ts` (6: standalone builder + the §3.3 sanitization chokepoint). Themes → `tests/theme.test.ts` (6). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 62; logic crates: 25 (`fsatomic` 5, `vaultscan` 3, `mdhtml` 5, `mdrtf` 12).
+- **Gates green:** atomic-save → `cargo test -p fsatomic` (5 tests). Round-trip → `pnpm test` (`tests/roundtrip.test.ts`, real Milkdown in jsdom, 16 — CommonMark + GFM + emoji). Toolbar round-trip → `tests/toolbar.test.ts` (19, §3.2: each command matches typing the equivalent syntax + asserts no raw-markdown-text insertion). Export render configs → `cargo test -p mdhtml` (5) + `cargo test -p mdrtf` (12). Export pipeline → `tests/export.test.ts` (6: standalone builder + the §3.3 sanitization chokepoint). Themes → `tests/theme.test.ts` (6). Clipboard-image asset logic → `cargo test -p imgasset` (4). Data-safety → `tests/security.test.ts` (7, §3.3). Plus `vaultscan` (3) and `tabs.test.ts` (8). Total `pnpm test`: 62; logic crates: 29 (`fsatomic` 5, `vaultscan` 3, `mdhtml` 5, `mdrtf` 12, `imgasset` 4).
 
 **Not yet done / deferred:**
 - **Round-trip gate covers CommonMark + GFM + emoji.** Math is **deferred** (its only plugin is deprecated — §8). YAML front matter still needs handling and is **not** yet guaranteed lossless — add its fixtures to `roundtrip.test.ts` when that lands.
@@ -39,7 +40,7 @@ What exists today:
 - **All GUI flows are unverified** (dialogs, Ctrl+S, tabs, sidebar, watcher reload, toolbar buttons + emoji picker + active-state highlighting, theme switching, export save dialog) — they need the webview; see the build-environment note. Verify on a machine with platform webview deps. Logic layers (toolbar commands, theme controller, export builder/sanitize, comrak render) are gated headlessly, but DOM/dialog wiring is not.
 - Tab switching does **not** preserve per-tab undo history (single shared editor; content is swapped). Acceptable for now; revisit if it bites.
 - **Source / Typewriter / Focus edit modes were dropped** as low-value (§8) — not deferred-pending, just not planned unless asked for.
-- **PDF export and clipboard image paste** remain (Phase 3 tail / Phase 4). YAML front matter still isn't guaranteed lossless in the round-trip gate (§8).
+- **PDF export** remains deferred (§7); the remaining roadmap is Phase 4 polish (status-bar word count, app menu, shortcut reference). YAML front matter still isn't guaranteed lossless in the round-trip gate (§8).
 
 ### Commands
 ```bash
@@ -50,14 +51,14 @@ pnpm tauri build      # production .exe + installer (Windows; see §9)
 pnpm test             # vitest — round-trip + toolbar + theme + export + tabs + security (jsdom)
 pnpm typecheck        # tsc --noEmit (TS strict)
 pnpm build            # tsc + vite build (frontend only)
-cd src-tauri && cargo test -p fsatomic -p vaultscan -p mdhtml -p mdrtf   # logic crates (no webview needed)
+cd src-tauri && cargo test -p fsatomic -p vaultscan -p mdhtml -p mdrtf -p imgasset   # logic crates (no webview needed)
 # (plain `cargo test` also builds the app crate → needs the webview toolchain)
 cd src-tauri && cargo fmt --all && cargo clippy   # clean before commit (§10)
 ```
 
 **Build environment note.** The Rust **app** crate links against the system webview (Windows: WebView2; Linux: WebKitGTK-4.1 + `pkg-config`). On a box without those, the frontend (`pnpm build`/`test`/`typecheck`), the `fsatomic` tests, and `cargo generate-lockfile` all work, but a full `cargo build`/`tauri dev` will not link. The window must be launched on a machine with the platform webview deps (the Windows target, or a Linux box with `libwebkit2gtk-4.1-dev`). `fsatomic` is split out partly so the §3.1 gate stays runnable everywhere.
 
-**Next: Phase 3 tail** — done so far: GFM, emoji, formatting toolbar, themes + persisted prefs, HTML export, and RTF export (all gated). Math **deferred** (deprecated plugin — §8); edit modes **dropped** as low-value (§8); PDF **deferred** as not worth the per-platform FFI now (§7). Remaining: clipboard image paste, then Phase 4 polish (status-bar word count, app menu).
+**Next: Phase 4 (Polish & ship)** — Phase 3 is effectively complete: GFM, emoji, formatting toolbar, themes + persisted prefs, HTML export, RTF export, and clipboard image paste (all gated). Math **deferred** (deprecated plugin — §8); edit modes **dropped** as low-value (§8); PDF **deferred** as not worth the per-platform FFI now (§7). Remaining: Phase 4 polish — status-bar word count, app menu, shortcut reference.
 
 ---
 
@@ -151,7 +152,8 @@ toril/
     │   ├── fsatomic/          # atomic writes (§3.1)
     │   ├── vaultscan/         # markdown-tree scanner (§5 open_folder)
     │   ├── mdhtml/            # comrak markdown→HTML for export (§7)
-    │   └── mdrtf/             # comrak markdown→RTF for export (§7)
+    │   ├── mdrtf/             # comrak markdown→RTF for export (§7)
+    │   └── imgasset/          # save pasted clipboard images beside the doc (§6)
     └── src/
         ├── main.rs            # bin entry → lib::run()
         ├── lib.rs             # Tauri builder + command registration
@@ -159,7 +161,7 @@ toril/
         │   ├── files.rs       # open / save (ATOMIC) / save_as
         │   ├── workspace.rs   # open folder, list tree, watch (notify crate)
         │   ├── export.rs      # markdown_to_html + export_html (HTML); export_rtf (mdrtf, all-Rust)
-        │   └── images.rs      # (future) persist pasted clipboard image into assets
+        │   └── images.rs      # save_clipboard_image — persist pasted image into assets (imgasset)
         └── settings.rs        # persisted prefs (theme, last folder, open files)
 ```
 > Note: comrak lives in the `crates/mdhtml` crate (not a `markdown.rs` in the app
@@ -184,7 +186,7 @@ Authoritative list. Update it here whenever a command changes. **All disk access
 | `export_html` | `html, defaultName` | `path?` | native dialog + **atomic** write of an already-sanitized standalone doc; `null` if cancelled |
 | `export_rtf` | `content, defaultName` | `path?` | renders (comrak via `mdrtf`) **and** writes, all in Rust; inert output, no sanitize step (§7); `null` if cancelled |
 | `export_pdf` | `content, theme` | `path` | *(deferred — see §7)* |
-| `save_clipboard_image` | `bytes, doc_path` | `relative_path` | *(deferred)* writes to `./assets/`, returns MD-relative path |
+| `save_clipboard_image` | `bytes, docPath` | `relative_path` | ✅ writes pasted image to `./assets/` (via `imgasset`), returns MD-relative path (§6) |
 | `load_settings` / `save_settings` | — / `Settings` | `Settings` / `()` | JSON in app config dir; `Settings` includes `theme` |
 
 > **HTML export is split** across two commands so the single sanitization path
@@ -208,7 +210,7 @@ Authoritative list. Update it here whenever a command changes. **All disk access
 | Front matter | comrak handles on export; render as a collapsed block in-editor |
 | Source / Typewriter / Focus modes | **Deferred — dropped as low-value (§8).** Source mode would swap Milkdown for CodeMirror 6 (both backed by `serializer.ts`); revisit only on demand |
 | Themes | ✅ done — `theme.ts` writes `html[data-theme]`; colors are CSS variables in `styles.css`; System/Light/Dark, choice persisted in settings |
-| Clipboard image paste | intercept `paste` → `save_clipboard_image` → insert `![](assets/…)` *(deferred)* |
+| Clipboard image paste | ✅ done — a `$prose` `handlePaste` plugin (`milkdown.ts`) detects an image, `save_clipboard_image` writes it to `assets/` (via `imgasset`), and it's inserted with `insertImageCommand` (canonical node, not raw text — §3.2). Requires a saved doc (the relative path needs a location). |
 
 ---
 
@@ -246,13 +248,13 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - ✅ `watch_folder` (`notify` crate) → `workspace:change` events; `main.ts` debounces a sidebar refresh and prompts to reload the active file on external change (self-writes suppressed to avoid prompting on our own saves). Obsidian-vault aware: hidden/`.obsidian` entries are skipped.
 - ⏳ Sidebar clicks, tab switching, and watcher reload prompts are unverified in a live window (no webview here).
 
-**Phase 3 — MarkText parity** *(in progress: GFM, emoji, formatting toolbar, themes, and HTML + RTF export are done + gated; edit modes dropped as low-value; PDF deferred)*
+**Phase 3 — MarkText parity** *(effectively complete: GFM, emoji, formatting toolbar, themes, HTML + RTF export, and clipboard image paste are done + gated; edit modes dropped as low-value; math + PDF deferred)*
 - ✅ GFM (done) + emoji plugin (`@milkdown/plugin-emoji`, maintained).
 - **Math (KaTeX) — DEFERRED.** The only Milkdown math plugin (`@milkdown/plugin-math`) is npm-**deprecated** ("no longer supported"), so it is omitted per the healthy-dependency rule (§2/§10). Revisit if a maintained math plugin appears, or if we hand-roll one on a maintained KaTeX + `remark-math` base. Until then the round-trip gate stays CommonMark + GFM + emoji.
 - ~~Source / Typewriter / Focus modes.~~ **DROPPED as low-value** (user decision, 2026-05-26). Not built; revisit only on explicit demand. Source mode (CodeMirror 6, §2) would be the substantial part if it returns.
 - ✅ **Themes (≥1 light + ≥1 dark) + persisted settings** — *done*. `src/ui/theme.ts` resolves a System/Light/Dark preference and writes `html[data-theme]`; all colors are CSS variables in `styles.css` (the editor's nord prose is overridden to follow the chosen theme, decoupled from the OS scheme). The preference persists via `Settings.theme` (`settings.rs`) alongside the existing session (last folder + open files/active tab). Header `#theme-select` control. Gate: `tests/theme.test.ts` (6).
 - ✅ **`sanitize.ts` (§3.3)** — module + unit tests done, editor audited safe (renders HTML as inert text), **and now wired into HTML export** (the real HTML sink): comrak output is sanitized on the frontend before it is templated + written. (Re-used by PDF export when that lands.)
-- Clipboard image paste *(deferred)*.
+- ✅ **Clipboard image paste** — *done* (`milkdown.ts` paste plugin + `save_clipboard_image` + `crates/imgasset`; §6). Pasting an image writes it to `assets/` beside the doc (content-hashed name → dedup), inserts a canonical image node. Blocked on unsaved docs (the relative link needs a saved location). Gate: `crates/imgasset` (4).
 - ✅ **Formatting toolbar (edit pane)** — *done* (`src/ui/toolbar.ts`, mounted at `app.html` `#format-toolbar`). A toolbar above the editor whose buttons insert or toggle markdown components. **Each button drives a Milkdown/ProseMirror command via the editor's `callCommand`** (e.g. `wrapInHeadingCommand`, `toggleStrongCommand`, `wrapInBulletListCommand`, `insertImageCommand`, `insertTableCommand`) — it **never inserts raw markdown characters as text** (the few items without a command — task list, clear-formatting, emoji — use a plain ProseMirror transaction, still not raw text). That keeps the document in one canonical form and routes every change through `serializer.ts` like any other edit, so there is no second conversion path (§3.2). Buttons reflect active state where the command exposes it (e.g. "bold" lit when the selection is strong), via `activeState()`. The pure command layer (`editorCommands`) is exported separately from the DOM `FormattingToolbar` class so the gate tests it headlessly. Distinct from the file-actions `#toolbar`; complements the keymap shortcuts rather than replacing them.
   - **Components (the coverage target — MarkText menu + the [Markdown Guide cheat sheet](https://www.markdownguide.org/cheat-sheet/)):** *Basic* — headings **H1–H6** + paragraph (a `<select>`), bold, italic, blockquote, ordered (`1.`) / unordered lists, inline code, horizontal rule, link, **image** (toolbar insert; clipboard-paste path is separate — see §6). *Extended (GFM, supported today)* — table, fenced code block, strikethrough, task list, emoji (an inline picker that inserts the **unicode emoji char** — the canonical form per the round-trip gate; inserting `:shortcode:` text would not auto-convert, so the char is the lossless choice). Plus a **clear-formatting** action (strips inline marks). **Front-matter block button is deferred** — front matter is not yet lossless (§0) and no front-matter plugin is loaded, so a button could only insert raw `---` text; add it once front matter round-trips.
   - **Deferred — not exposed until a healthy plugin + lossless round-trip exist (§2/§10), same policy as math:** cheat-sheet *footnote, heading ID, definition list, highlight (`==`), subscript, superscript*, and *math (KaTeX)* (already deferred). A button is added **only** once that component round-trips losslessly; never ship a control for syntax the editor can't represent.
@@ -260,7 +262,7 @@ One milestone per branch. Each ends runnable + committed. Don't skip the gates.
 - ✅ **GATE:** toolbar round-trip — *done* (`tests/toolbar.test.ts`, 19). Applying a format via a command yields the same canonical markdown as typing the equivalent syntax (compared against a `serializer.ts` round-trip of the hand-typed form), and the suite asserts no raw-markdown-text insertion (the document's text content is unchanged after an inline format — the syntax lives as marks/nodes, never literal `**`/`> ` characters). Kept in its own file rather than `roundtrip.test.ts` to isolate the command-layer fixtures (§3.2).
 - ✅ **HTML export** — *done* (`markdown_to_html` + `export_html`, `crates/mdhtml`, `src/export/html.ts`; §7). Sanitized via `sanitize.ts`, theme-aware standalone document, atomic write. Gate: `crates/mdhtml` (5, render config) + `tests/export.test.ts` (6, builder + the §3.3 chokepoint).
 - ✅ **RTF export** — *done* (`export_rtf`, `crates/mdrtf`; §7). All-Rust (comrak AST → RTF control words → atomic write); no webview/sanitize step since RTF is inert. Gate: `crates/mdrtf` (12). Opens in Word/LibreOffice/WordPad/TextEdit. *(Added in place of PDF, which was judged not worth the per-platform FFI at this maturity — §7.)*
-- **PDF export — deferred** (§7): the HTML export already covers a manual browser "Save as PDF"; programmatic PDF needs unverifiable per-platform webview FFI. Clipboard image paste also remains.
+- **PDF export — deferred** (§7): the HTML export already covers a manual browser "Save as PDF"; programmatic PDF needs unverifiable per-platform webview FFI. With clipboard image paste now done, Phase 3 is effectively complete except deferred PDF; **next is Phase 4 polish** (status-bar word count, app menu).
 
 **Phase 4 — Polish & ship**
 - App menu, shortcut reference, word count in status bar.

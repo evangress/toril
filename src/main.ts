@@ -22,6 +22,7 @@ import {
   openFolder,
   pickFileToOpen,
   pickFolder,
+  saveClipboardImage,
   saveFile,
   saveFileAs,
   saveSettings,
@@ -261,6 +262,29 @@ async function doExportRtf(): Promise<void> {
   }
 }
 
+// ---- Clipboard image paste -------------------------------------------------
+
+/**
+ * Persist a pasted image beside the active document and return the relative
+ * `src` for the editor to link (§6). Requires the document to be saved — the
+ * relative `assets/…` path only makes sense once it has a location on disk.
+ */
+async function onImagePaste(bytes: Uint8Array): Promise<string | null> {
+  const tab = tabs.active();
+  if (!tab?.path) {
+    setStatus("Save the document before pasting images.");
+    return null;
+  }
+  try {
+    const src = await saveClipboardImage(Array.from(bytes), tab.path);
+    setStatus(`Inserted image (${src})`);
+    return src;
+  } catch (e) {
+    setStatus(`Image paste failed: ${String(e)}`);
+    return null;
+  }
+}
+
 // ---- External changes ------------------------------------------------------
 
 function isSelfWrite(path: string): boolean {
@@ -435,7 +459,12 @@ window.addEventListener("DOMContentLoaded", async () => {
   syncThemeSelect();
 
   loading = true;
-  editor = await createEditor({ root: editorRoot, initial: "", onChange: onEditorChange });
+  editor = await createEditor({
+    root: editorRoot,
+    initial: "",
+    onChange: onEditorChange,
+    onImagePaste,
+  });
   loading = false;
   formatToolbar = new FormattingToolbar(formatBar, editor, editorRoot);
 

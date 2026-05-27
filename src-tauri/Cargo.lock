@@ -1682,6 +1682,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "imgasset"
+version = "0.1.0"
+dependencies = [
+ "fsatomic",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3930,6 +3937,7 @@ name = "toril-app"
 version = "0.1.0"
 dependencies = [
  "fsatomic",
+ "imgasset",
  "mdhtml",
  "mdrtf",
  "notify",
