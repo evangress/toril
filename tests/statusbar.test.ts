@@ -1,7 +1,7 @@
 // Status-bar counting helpers (CLAUDE.md §4). The DOM/editor wiring is GUI and
 // needs the webview; these pure functions are the testable core.
 import { describe, expect, it } from "vitest";
-import { countCharacters, countWords, cursorLineColumn } from "../src/ui/statusbar";
+import { countCharacters, countWords, cursorLineColumn, readingMinutes } from "../src/ui/statusbar";
 
 describe("countWords", () => {
   it("counts runs of non-whitespace", () => {
@@ -24,6 +24,18 @@ describe("countCharacters", () => {
   it("counts an emoji as a single character", () => {
     expect(countCharacters("🚀")).toBe(1);
     expect(countCharacters("hi🚀")).toBe(3);
+  });
+});
+
+describe("readingMinutes", () => {
+  it("is 0 for an empty document", () => {
+    expect(readingMinutes(0)).toBe(0);
+  });
+  it("rounds up, with a 1-minute floor", () => {
+    expect(readingMinutes(1)).toBe(1);
+    expect(readingMinutes(200)).toBe(1);
+    expect(readingMinutes(201)).toBe(2);
+    expect(readingMinutes(500)).toBe(3);
   });
 });
 

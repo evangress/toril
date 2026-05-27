@@ -25,6 +25,11 @@ export function cursorLineColumn(textBeforeCursor: string): { line: number; colu
   return { line: lines.length, column: lines[lines.length - 1].length + 1 };
 }
 
+/** Estimated reading time in whole minutes at ~200 wpm; 0 words → 0. */
+export function readingMinutes(words: number): number {
+  return words === 0 ? 0 : Math.max(1, Math.ceil(words / 200));
+}
+
 export interface DocStats {
   words: number;
   characters: number;
@@ -92,6 +97,8 @@ export class StatusBar {
   refresh(): void {
     const s = this.stats();
     const words = s.selectedWords > 0 ? `${s.selectedWords} of ${s.words} words` : `${s.words} words`;
-    this.el.textContent = `${words} · ${s.characters} chars · Ln ${s.line}, Col ${s.column}`;
+    const mins = readingMinutes(s.words);
+    const read = mins > 0 ? ` · ~${mins} min read` : "";
+    this.el.textContent = `${words} · ${s.characters} chars${read} · Ln ${s.line}, Col ${s.column}`;
   }
 }

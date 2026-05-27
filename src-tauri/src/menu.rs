@@ -22,6 +22,7 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         .separator()
         .text("menu_save", "Save (Ctrl+S)")
         .text("menu_save_as", "Save As… (Ctrl+Shift+S)")
+        .text("menu_save_all", "Save All (Ctrl+Alt+S)")
         .separator()
         .text("menu_export_html", "Export HTML… (Ctrl+E)")
         .text("menu_export_rtf", "Export RTF…")
@@ -39,11 +40,17 @@ pub fn build<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
         .select_all()
         .build()?;
 
+    let view = SubmenuBuilder::new(app, "View")
+        .text("menu_toggle_sidebar", "Toggle Sidebar (Ctrl+\\)")
+        .build()?;
+
     let help = SubmenuBuilder::new(app, "Help")
         .text("menu_about", "About Toril")
         .build()?;
 
-    MenuBuilder::new(app).items(&[&file, &edit, &help]).build()
+    MenuBuilder::new(app)
+        .items(&[&file, &edit, &view, &help])
+        .build()
 }
 
 /// Forward our custom item ids to the frontend. Predefined items (quit, copy,
