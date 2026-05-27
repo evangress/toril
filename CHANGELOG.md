@@ -13,6 +13,34 @@ GitHub Release notes plus the commits that shipped in it.
 
 _Nothing yet._
 
+## [v0.1.0-alpha.7] — 2026-05-27
+
+**Release notes — new in this build:**
+
+- **Paste images from the clipboard** — paste a screenshot or copied image
+  straight into a (saved) note; it's written to an `assets/` folder beside the
+  file and linked inline. Re-pasting the same image reuses one file.
+- **Status bar** — live word & character count and cursor line/column at the
+  bottom of the window (with a selection it shows "N of M words").
+- **Native menu bar** — File / Edit / Help menus for New, Open, Save, Export
+  HTML/RTF, the standard edit actions, and About. Keyboard shortcuts still work
+  as before; the menu lists them.
+
+_Still an early alpha — back up your notes. On Windows, SmartScreen warns on
+first run because the build is unsigned; that is expected._
+
+### Added
+- Clipboard image paste: `save_clipboard_image` + the testable `imgasset` crate;
+  a `milkdown.ts` paste plugin inserts a canonical image node (blocked on unsaved
+  docs, which have no location for the relative link).
+- Status bar (`src/ui/statusbar.ts`): word/char count + cursor `Ln/Col`.
+- Native app menu (`src-tauri/src/menu.rs`): File/Edit/Help, routed to the
+  existing actions via a `menu` event.
+
+### Commits
+- `3e63342` feat(ui): status-bar word count/cursor + native app menu (Phase 4)
+- `8d89aef` feat(editor): paste clipboard images into assets beside the doc
+
 ## [v0.1.0-alpha.6] — 2026-05-27
 
 **Release notes — new in this build:**
@@ -172,7 +200,8 @@ watcher, and the cross-platform release pipeline.
 - `0d5b7f5` initial commit
 - `24d2c42` Initial commit
 
-[Unreleased]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.6...HEAD
+[Unreleased]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.7...HEAD
+[v0.1.0-alpha.7]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.6...v0.1.0-alpha.7
 [v0.1.0-alpha.6]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.5...v0.1.0-alpha.6
 [v0.1.0-alpha.5]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [v0.1.0-alpha.4]: https://github.com/kovirlabs/toril/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
