@@ -14,6 +14,7 @@ import {
   type UnlistenFn,
   type WorkspaceChange,
   exportHtml,
+  exportRtf,
   loadSettings,
   markdownToHtml,
   onWorkspaceChange,
@@ -242,6 +243,24 @@ async function doExportHtml(): Promise<void> {
   }
 }
 
+/**
+ * Export the active document to RTF. The whole pipeline is in Rust (`mdrtf`
+ * renders, the command writes) — RTF is inert, so there is no sanitization step
+ * like HTML export needs (§7).
+ */
+async function doExportRtf(): Promise<void> {
+  const tab = tabs.active();
+  if (!tab) return;
+  try {
+    const markdown = docToMarkdown(editor);
+    const title = tab.name.replace(/\.(md|markdown)$/i, "");
+    const path = await exportRtf(markdown, `${title || "untitled"}.rtf`);
+    if (path) setStatus(`Exported ${basename(path)}`);
+  } catch (e) {
+    setStatus(`Export failed: ${String(e)}`);
+  }
+}
+
 // ---- External changes ------------------------------------------------------
 
 function isSelfWrite(path: string): boolean {
@@ -426,6 +445,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   document.querySelector("#btn-save")?.addEventListener("click", () => void doSave());
   document.querySelector("#btn-save-as")?.addEventListener("click", () => void doSaveAs());
   document.querySelector("#btn-export")?.addEventListener("click", () => void doExportHtml());
+  document.querySelector("#btn-export-rtf")?.addEventListener("click", () => void doExportRtf());
   installShortcuts();
 
   // Restore the last session (folder + open files); fall back to a welcome tab

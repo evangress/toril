@@ -1,0 +1,12 @@
+[package]
+name = "mdrtf"
+version = "0.1.0"
+edition = "2024"
+description = "Markdown → RTF rendering for Toril export (CLAUDE.md §7), via comrak's AST. No Tauri dependency so it is unit-testable without the webview."
+
+# comrak is the decided markdown engine (§2); we walk its AST and emit RTF.
+# RTF is inert plain text generated entirely here, so — unlike HTML export —
+# there is no webview sink and no separate sanitization step (§3.3): untrusted
+# inline HTML in the source is emitted as escaped literal text, never interpreted.
+[dependencies]
+comrak = "0.52"

@@ -16,6 +16,7 @@ pub fn run() {
             commands::workspace::watch_folder,
             commands::export::markdown_to_html,
             commands::export::export_html,
+            commands::export::export_rtf,
             settings::load_settings,
             settings::save_settings,
         ])

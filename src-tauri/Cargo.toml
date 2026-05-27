@@ -1,8 +1,8 @@
 [workspace]
 # Unit-testable cores kept out of the app crate so their tests run without the
 # webview: atomic saves (§3.1), the folder scanner (§5), and the comrak-based
-# markdown→HTML renderer for export (§7).
-members = ["crates/fsatomic", "crates/vaultscan", "crates/mdhtml"]
+# markdown→HTML / markdown→RTF renderers for export (§7).
+members = ["crates/fsatomic", "crates/vaultscan", "crates/mdhtml", "crates/mdrtf"]
 # Vendored, security-patched glib (see [patch.crates-io] below). Excluded so it
 # is never a workspace member — we don't fmt/clippy/test upstream third-party code.
 exclude = ["third-party/glib"]
@@ -37,6 +37,7 @@ notify = "8"
 fsatomic = { path = "crates/fsatomic" }
 vaultscan = { path = "crates/vaultscan" }
 mdhtml = { path = "crates/mdhtml" }
+mdrtf = { path = "crates/mdrtf" }
 
 # Security patch for glib (Linux/gtk3 transitive dep via Tauri).
 # GHSA-wrw7-89jp-8q8g: VariantStrIter::impl_get passed a NULL out-pointer as
