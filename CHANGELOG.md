@@ -13,6 +13,30 @@ GitHub Release notes plus the commits that shipped in it.
 
 _Nothing yet._
 
+## [v0.1.0-alpha.9] — 2026-05-29
+
+**Release notes — bug fix:**
+
+- **The window close button (✕) works again.** Closing the window from the
+  title bar had stopped working: it did nothing, and the only way to quit was
+  the **File → Quit** menu item. The ✕ button now closes the window as expected
+  — immediately when there's nothing unsaved, and after the save-or-discard
+  prompt when there is.
+
+_Still an early alpha — back up your notes. On Windows, SmartScreen warns on
+first run because the build is unsigned; that is expected._
+
+### Fixed
+- Window close (✕) was a no-op because closing goes through `window.destroy()`,
+  which needs the `core:window:allow-destroy` permission that `core:default`
+  does not grant (its window permissions are read-only). Granted it in the main
+  window's capability (`src-tauri/capabilities/default.json`). The unsaved-changes
+  close guard (`installCloseGuard`) was already correct; it just couldn't destroy
+  the window. `File → Quit` was unaffected (native app-quit path).
+
+### Commits
+- `7306e55` fix(window): grant window destroy permission so the X button closes
+
 ## [v0.1.0-alpha.8] — 2026-05-27
 
 **Release notes — quality-of-life improvements:**
