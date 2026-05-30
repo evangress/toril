@@ -13,6 +13,39 @@ GitHub Release notes plus the commits that shipped in it.
 
 _Nothing yet._
 
+## [v0.1.1-alpha.1] — 2026-05-30
+
+**Release notes — edit HTML, not just Markdown:**
+
+- **HTML is now a first-class editable format.** Open, edit, and save `.html`
+  files in the same WYSIWYG editor you use for Markdown — handy now that AI
+  assistants increasingly hand you rich HTML instead of Markdown. The format is
+  chosen automatically from the file extension.
+- **Rich document constructs round-trip losslessly** — callouts/admonitions,
+  collapsible `<details>`, highlight (`<mark>`), subscript/superscript, and
+  definition lists, on top of the usual headings, lists, tables, code, and links.
+- **Safe by default** — HTML is sanitized as it loads, so scripts, inline event
+  handlers, and embedded frames can never run in the editor.
+
+_Still an early alpha — back up your notes. On Windows, SmartScreen warns on
+first run because the build is unsigned; that is expected._
+
+### Added
+- HTML editable format: `src/editor/html-serializer.ts` (the single canonical
+  HTML⇄document converter, mirroring `serializer.ts`) on the existing
+  Milkdown/ProseMirror engine — no second editor, no new dependencies. Loads are
+  sanitized through `sanitize.ts` before reaching the editable surface.
+- Format-aware tabs (`DocFormat` on `TabState`): open/save/Save As/reload pick the
+  matching serializer per file; export stays Markdown→comrak.
+- Richer HTML constructs (`src/editor/html-constructs.ts`): `<mark>`/`<sub>`/`<sup>`
+  marks and `<div class="callout">`, `<details>`/`<summary>`, `<dl>`/`<dt>`/`<dd>`
+  blocks, as Milkdown `$node`/`$mark` with safe markdown degraders.
+- Gate: `tests/html-roundtrip.test.ts` (21) — per-construct round-trip, load
+  sanitization, and the export degrade-to-markdown path. Suite 76→97.
+
+### Commits
+- `8e4a0ab` feat(editor): HTML as a first-class editable format
+
 ## [v0.1.0-alpha.9] — 2026-05-29
 
 **Release notes — bug fix:**
