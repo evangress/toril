@@ -183,7 +183,8 @@ toril/
 │   ├── editor/
 │   │   ├── milkdown.ts        # WYSIWYG setup + plugins (incl. clipboard-image paste, §6)
 │   │   ├── serializer.ts      # the ONE markdown <-> doc converter (§3.2)
-│   │   └── html-serializer.ts # the ONE HTML <-> doc converter (§3.2/§3.3) — feat/html-format
+│   │   ├── html-serializer.ts # the ONE HTML <-> doc converter (§3.2/§3.3)
+│   │   └── html-constructs.ts # richer HTML-only schema: callout/details/dl/mark/sub/sup (§6)
 │   ├── ui/
 │   │   ├── sidebar.ts         # file tree
 │   │   ├── tabs.ts            # open-document tabs (one shared editor + per-tab buffer)
