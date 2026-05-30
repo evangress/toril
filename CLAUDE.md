@@ -45,6 +45,15 @@ the feature-by-feature record.
 lists, `---`→`***`). It reformats whitespace but never drops content and is idempotent thereafter —
 relevant to Obsidian-vault diffs (§1).
 
+**In progress — HTML as a first-class editable format** (branch `feat/html-format`, not merged): open/edit/save
+`.html` WYSIWYG alongside `.md`, motivated by AI assistants emitting rich HTML instead of Markdown.
+Done + gated: `src/editor/html-serializer.ts` (the one HTML⇄doc converter, §3.2, via ProseMirror
+`DOMSerializer`/`DOMParser` on the existing Milkdown schema; sanitize-on-load §3.3) and format-aware
+tabs (`DocFormat` in `tabs.ts`; save/reload branch on `tab.format`). Covers the CommonMark+GFM construct
+set. **Deferred next:** broaden the schema to richer AI-HTML constructs (callouts, `<details>`,
+`<mark>`, `<figure>`, sub/sup, definition lists) — open decision: hand-roll via Milkdown `$node`/`$mark`
+(no new deps) vs. maintained plugins. See the `html-format-wip` memory + the plan file to resume.
+
 **Next:** finish Phase 4 — remaining is shippable-quality work: optional code-signing (removes the
 SmartScreen warning) and on-device verification. A backlog of further QoL features is in §13.
 
@@ -156,7 +165,8 @@ toril/
 │   ├── main.ts                # bootstrap / app controller
 │   ├── editor/
 │   │   ├── milkdown.ts        # WYSIWYG setup + plugins (incl. clipboard-image paste, §6)
-│   │   └── serializer.ts      # the ONE markdown <-> doc converter (§3.2)
+│   │   ├── serializer.ts      # the ONE markdown <-> doc converter (§3.2)
+│   │   └── html-serializer.ts # the ONE HTML <-> doc converter (§3.2/§3.3) — feat/html-format
 │   ├── ui/
 │   │   ├── sidebar.ts         # file tree
 │   │   ├── tabs.ts            # open-document tabs (one shared editor + per-tab buffer)

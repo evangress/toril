@@ -7,6 +7,7 @@ import "./styles.css";
 import type { Editor } from "@milkdown/kit/core";
 import { createEditor } from "./editor/milkdown";
 import { docToMarkdown, markdownToDoc } from "./editor/serializer";
+import { docToHtml, htmlToDoc } from "./editor/html-serializer";
 import { buildStandaloneHtml } from "./export/html";
 import { sanitizeHtml } from "./sanitize";
 import {
@@ -34,7 +35,7 @@ import {
 import { SearchBar } from "./ui/search";
 import { Sidebar } from "./ui/sidebar";
 import { StatusBar } from "./ui/statusbar";
-import { type TabState, TabManager } from "./ui/tabs";
+import { type TabState, type DocFormat, TabManager } from "./ui/tabs";
 import { ThemeController, isTheme } from "./ui/theme";
 import { FormattingToolbar } from "./ui/toolbar";
 
@@ -83,10 +84,23 @@ function updateTitle(): void {
   sidebar.setActivePath(tab?.path ?? null);
 }
 
-function loadIntoEditor(content: string): void {
+// Format-aware bridges to the two canonical serializers (§3.2). The active tab's
+// `format` decides which one runs; everything else (tabs, save, session) is shared.
+function loadIntoEditor(content: string, format: DocFormat): void {
   loading = true;
-  markdownToDoc(editor, content);
+  if (format === "html") htmlToDoc(editor, content);
+  else markdownToDoc(editor, content);
   loading = false;
+}
+
+/** Serialize the live editor into the given format's canonical string. */
+function serializeEditor(format: DocFormat): string {
+  return format === "html" ? docToHtml(editor) : docToMarkdown(editor);
+}
+
+/** Map a file path's extension to its canonical editor format. */
+function formatForPath(path: string): DocFormat {
+  return /\.html?$/i.test(path) ? "html" : "markdown";
 }
 
 function onEditorChange(): void {
@@ -102,11 +116,11 @@ function onEditorChange(): void {
 // ---- Tab lifecycle: keep editor and per-tab buffers in sync ----------------
 
 function onDeactivate(tab: TabState): void {
-  tab.content = docToMarkdown(editor); // persist outgoing tab's edits
+  tab.content = serializeEditor(tab.format); // persist outgoing tab's edits
 }
 
 function onActivate(tab: TabState): void {
-  loadIntoEditor(tab.content);
+  loadIntoEditor(tab.content, tab.format);
   updateTitle();
   formatToolbar?.refresh();
   statusBar?.refresh();
@@ -125,8 +139,13 @@ function onCloseRequest(tab: TabState): void {
 
 // ---- Open / save -----------------------------------------------------------
 
-function openDocument(path: string | null, name: string, content: string): void {
-  tabs.open({ path, name, content });
+function openDocument(
+  path: string | null,
+  name: string,
+  content: string,
+  format: DocFormat = "markdown",
+): void {
+  tabs.open({ path, name, content, format });
   updateTitle();
 }
 
@@ -138,7 +157,7 @@ async function openPath(path: string): Promise<void> {
     return;
   }
   const file = await openFile(path);
-  openDocument(file.path, basename(file.path), file.content);
+  openDocument(file.path, basename(file.path), file.content, formatForPath(file.path));
   setStatus(`Opened ${basename(file.path)}`);
 }
 
@@ -181,7 +200,7 @@ function recordSelfWrite(path: string): void {
 async function persistActive(path: string): Promise<void> {
   const tab = tabs.active();
   if (!tab) return;
-  const content = docToMarkdown(editor);
+  const content = serializeEditor(tab.format);
   recordSelfWrite(path);
   await saveFile(path, content);
   tab.content = content;
@@ -207,7 +226,7 @@ async function doSave(): Promise<void> {
 /** Save every dirty, file-backed tab (Untitled tabs need Save As and are skipped). */
 async function doSaveAll(): Promise<void> {
   const active = tabs.active();
-  if (active) active.content = docToMarkdown(editor); // capture the live buffer
+  if (active) active.content = serializeEditor(active.format); // capture the live buffer
   let saved = 0;
   for (const tab of tabs.list()) {
     if (!tab.dirty || !tab.path) continue;
@@ -228,7 +247,7 @@ async function doSaveAs(): Promise<void> {
   const tab = tabs.active();
   if (!tab) return;
   try {
-    const content = docToMarkdown(editor);
+    const content = serializeEditor(tab.format);
     const path = await saveFileAs(content);
     if (!path) return; // cancelled
     recordSelfWrite(path);
@@ -374,7 +393,7 @@ async function handleWorkspaceChange(change: WorkspaceChange): Promise<void> {
   try {
     const file = await openFile(active.path);
     active.content = file.content;
-    loadIntoEditor(file.content);
+    loadIntoEditor(file.content, active.format);
     tabs.setDirty(active.id, false);
     updateTitle();
     setStatus(`Reloaded ${active.name}`);

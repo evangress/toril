@@ -4,13 +4,21 @@
 // loads the incoming one (onActivate), so there is always exactly one source of
 // truth per document (no diverging buffers, §3.2).
 
+/** Which canonical representation a tab's `content` is in (§3.2). */
+export type DocFormat = "markdown" | "html";
+
 export interface TabState {
   readonly id: string;
   /** Absolute path, or null for an unsaved "Untitled" document. */
   path: string | null;
   name: string;
-  /** Canonical markdown. Authoritative while the tab is inactive. */
+  /**
+   * Canonical content in the tab's `format` (markdown or HTML). Authoritative
+   * while the tab is inactive. Each format has exactly one serializer (§3.2).
+   */
   content: string;
+  /** Determines which serializer loads/saves this tab. */
+  format: DocFormat;
   dirty: boolean;
 }
 
@@ -49,7 +57,12 @@ export class TabManager {
    * Open a document. If a tab for the same (non-null) path already exists, it is
    * activated instead of duplicated. Returns the resulting tab.
    */
-  open(opts: { path: string | null; name: string; content: string }): TabState {
+  open(opts: {
+    path: string | null;
+    name: string;
+    content: string;
+    format?: DocFormat;
+  }): TabState {
     if (opts.path) {
       const existing = this.byPath(opts.path);
       if (existing) {
@@ -62,6 +75,7 @@ export class TabManager {
       path: opts.path,
       name: opts.name,
       content: opts.content,
+      format: opts.format ?? "markdown",
       dirty: false,
     };
     this.items.push(tab);
