@@ -45,14 +45,31 @@ the feature-by-feature record.
 lists, `---`→`***`). It reformats whitespace but never drops content and is idempotent thereafter —
 relevant to Obsidian-vault diffs (§1).
 
-**In progress — HTML as a first-class editable format** (branch `feat/html-format`, not merged): open/edit/save
-`.html` WYSIWYG alongside `.md`, motivated by AI assistants emitting rich HTML instead of Markdown.
-Done + gated: `src/editor/html-serializer.ts` (the one HTML⇄doc converter, §3.2, via ProseMirror
-`DOMSerializer`/`DOMParser` on the existing Milkdown schema; sanitize-on-load §3.3) and format-aware
-tabs (`DocFormat` in `tabs.ts`; save/reload branch on `tab.format`). Covers the CommonMark+GFM construct
-set. **Deferred next:** broaden the schema to richer AI-HTML constructs (callouts, `<details>`,
-`<mark>`, `<figure>`, sub/sup, definition lists) — open decision: hand-roll via Milkdown `$node`/`$mark`
-(no new deps) vs. maintained plugins. See the `html-format-wip` memory + the plan file to resume.
+**HTML as a first-class editable format — shipped in v0.1.1-alpha.1.** Open/edit/save `.html`
+WYSIWYG alongside `.md`, motivated by AI assistants emitting rich HTML instead of Markdown. The editor
+engine is unchanged — HTML is the native shape of a ProseMirror doc, so it is a second canonical
+serializer (`src/editor/html-serializer.ts`, §3.2) on the existing Milkdown schema, with sanitize-on-load
+(§3.3) and format-aware tabs (`DocFormat` in `tabs.ts`; open/save/Save As/reload branch on `tab.format`;
+export stays Markdown→comrak). Richer constructs (`src/editor/html-constructs.ts`): `<mark>`/`<sub>`/`<sup>`
+marks and `<div class="callout">`, `<details>`/`<summary>`, `<dl>`/`<dt>`/`<dd>` blocks, as Milkdown
+`$node`/`$mark` with safe markdown degraders. Gate: `tests/html-roundtrip.test.ts`.
+
+**HTML format — remaining follow-ups** (not yet done):
+- **Figure/figcaption** — deferred (image is inline; the figure content model is awkward).
+- **Toolbar / menu affordances** for the new constructs — they currently only enter the doc via HTML
+  parsing, not via buttons. A UX increment.
+- **"Save As .html" dialog filter** — Rust `save_file_as` is currently Markdown-oriented.
+- **On-device GUI verification** of the HTML flows (no webview here) — open a real AI `.html` artifact,
+  edit, save, reopen; confirm the supported subset survives and unsupported markup is cleanly normalized.
+- **Identity note:** HTML as first-class is a deliberate expansion of the "plain `.md`,
+  Obsidian-compatible" pitch (§1) — keep that trade-off in mind.
+
+Implementation notes for whoever resumes (learned the hard way): Milkdown `$markSchema`/`$nodeSchema`
+*require* `toMarkdown`+`parseMarkdown`; `SerializerState` renders children via `state.next(node.content)`
+(there is no `renderContent`); callout `kind` must be **class**-encoded (`callout-<kind>`) because
+`sanitize.ts` runs with `ALLOW_DATA_ATTR:false`; and marks with no markdown form must degrade with a
+**no-op** runner (an empty-type `withMark` produces an mdast node remark cannot stringify — and Export
+HTML/RTF always serialize via `docToMarkdown`).
 
 **Next:** finish Phase 4 — remaining is shippable-quality work: optional code-signing (removes the
 SmartScreen warning) and on-device verification. A backlog of further QoL features is in §13.
